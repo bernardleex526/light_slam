@@ -166,6 +166,18 @@ void LaserMapping::ProcessIMU(const lightning::IMUPtr &imu) {
     imu_buffer_.emplace_back(imu);
 }
 
+void LaserMapping::ProcessOdom(const OdomPtr &odom) {
+    UL lock(mtx_odom_);
+    if (!odom_buffer_.empty() && odom->timestamp_ < odom_buffer_.back()->timestamp_) {
+        LOG(WARNING) << "odom loop back, clear buffer";
+        odom_buffer_.clear();
+    }
+    odom_buffer_.push_back(odom);
+    while (odom_buffer_.size() > 200) {
+        odom_buffer_.pop_front();
+    }
+}
+
 bool LaserMapping::Run() {
     if (!SyncPackages()) {
         LOG(WARNING) << "sync package failed";
@@ -264,10 +276,16 @@ bool LaserMapping::Run() {
     // pred_state.pos_ = state_point_.pos_;  // 假定位置不动行不行,防止速度漂移
     // kf_.ChangeX(pred_state);
 
-    kf_.Update(ESKF::ObsType::LIDAR, 1.0);
+    if (!measures_.odom_.empty()) {
+        kf_.Update(ESKF::ObsType::WHEEL_SPEED_AND_LIDAR, 1.0);
+    } else {
+        kf_.Update(ESKF::ObsType::LIDAR, 1.0);
+    }
 
     state_point_ = kf_.GetX();
     state_point_.timestamp_ = measures_.lidar_end_time_;
+
+    prev_frame_pose_ = state_point_.GetPose();
 
     const double delta_translation = (pred_state.pos_ - state_point_.pos_).norm();
     const double delta_rotation_deg = (pred_state.rot_.inverse() * state_point_.rot_).log().norm() * 180.0 / M_PI;
@@ -530,6 +548,22 @@ bool LaserMapping::SyncPackages() {
         measures_.imu_.push_back(imu_buffer_.front());
 
         imu_buffer_.pop_front();
+    }
+
+    /*** push odom_ data, and pop from odom buffer ***/
+    UL lock_odom(mtx_odom_);
+    measures_.odom_.clear();
+    if (!odom_buffer_.empty()) {
+        while (!odom_buffer_.empty() && odom_buffer_.front()->timestamp_ < measures_.lidar_begin_time_ - 0.1) {
+            odom_buffer_.pop_front();  // 丢弃过期
+        }
+        for (auto &odom : odom_buffer_) {
+            if (odom->timestamp_ > measures_.lidar_end_time_ + 0.1) {
+                break;
+            }
+            measures_.odom_.push_back(odom);
+        }
+        odom_buffer_.clear();
     }
 
     lidar_buffer_.pop_front();

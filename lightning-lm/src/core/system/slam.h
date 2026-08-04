@@ -8,6 +8,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <string>
 
 #include "lightning/srv/save_map.hpp"
@@ -16,6 +17,7 @@
 #include "common/eigen_types.h"
 #include "common/imu.h"
 #include "common/keyframe.h"
+#include "common/odom.h"
 
 namespace lightning {
 
@@ -74,6 +76,9 @@ class SlamSystem {
     /// 实时模式下的spin
     void Spin();
 
+    /// 获取 lio 前端
+    std::shared_ptr<LaserMapping> Lio() { return lio_; }
+
    private:
     /// ros端保存地图的实现
     void SaveMap(const SaveMapService::Request::SharedPtr request, SaveMapService::Response::SharedPtr response);
@@ -97,10 +102,12 @@ class SlamSystem {
     std::string imu_topic_;
     std::string cloud_topic_;
     std::string livox_topic_;
+    std::string odom_topic_;
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_ = nullptr;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_ = nullptr;
     rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr livox_sub_ = nullptr;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_ = nullptr;
 };
 }  // namespace lightning
 

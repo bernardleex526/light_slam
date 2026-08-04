@@ -87,6 +87,7 @@ bool SlamSystem::Init(const std::string& yaml_path) {
         imu_topic_ = yaml["common"]["imu_topic"].as<std::string>();
         cloud_topic_ = yaml["common"]["lidar_topic"].as<std::string>();
         livox_topic_ = yaml["common"]["livox_lidar_topic"].as<std::string>();
+        odom_topic_ = yaml["common"]["odom_topic"].as<std::string>("/odom_wheel");
 
         rclcpp::QoS qos(10);
         // qos.best_effort();
@@ -112,6 +113,23 @@ bool SlamSystem::Init(const std::string& yaml_path) {
             livox_topic_, qos, [this](livox_ros_driver2::msg::CustomMsg ::SharedPtr cloud) {
                 Timer::Evaluate([&]() { ProcessLidar(cloud); }, "Proc Lidar", true);
             });
+
+        if (!odom_topic_.empty()) {
+            odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
+                odom_topic_, qos, [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
+                    OdomPtr odom = std::make_shared<Odom>();
+                    odom->timestamp_ = ToSec(msg->header.stamp);
+                    odom->pose = SE3(Quatd(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
+                                            msg->pose.pose.orientation.y, msg->pose.pose.orientation.z),
+                                     Vec3d(msg->pose.pose.position.x, msg->pose.pose.position.y,
+                                           msg->pose.pose.position.z));
+                    odom->linear =
+                        Vec3d(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
+                    odom->angular =
+                        Vec3d(msg->twist.twist.angular.x, msg->twist.twist.angular.y, msg->twist.twist.angular.z);
+                    lio_->ProcessOdom(odom);
+                });
+        }
 
         savemap_service_ = node_->create_service<SaveMapService>(
             "lightning/save_map", [this](const SaveMapService::Request::SharedPtr& req,

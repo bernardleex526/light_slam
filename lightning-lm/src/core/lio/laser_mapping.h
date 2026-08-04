@@ -9,6 +9,7 @@
 #include "common/eigen_types.h"
 #include "common/imu.h"
 #include "common/keyframe.h"
+#include "common/odom.h"
 #include "common/options.h"
 #include "core/ivox3d/ivox3d.h"
 #include "core/lio/eskf.hpp"
@@ -77,6 +78,9 @@ class LaserMapping {
     void ProcessPointCloud2(CloudPtr cloud);
 
     void ProcessIMU(const lightning::IMUPtr &msg_in);
+
+    /// 处理轮速/腿式里程计（Odom），线程安全
+    void ProcessOdom(const OdomPtr &odom);
 
     /// 保存前端的地图
     void SaveMap();
@@ -187,6 +191,11 @@ class LaserMapping {
 
     std::deque<PointCloudType::Ptr> lidar_buffer_;
     std::deque<lightning::IMUPtr> imu_buffer_;
+
+    std::mutex mtx_odom_;
+    std::deque<OdomPtr> odom_buffer_;  // 轮速里程计缓存
+    SE3 prev_frame_pose_;              // 上一帧状态位姿（轮速观测预测用）
+    bool last_frame_degenerate_ = false;  // 上一帧是否退化（轮速增强用）
 
     /// options
     bool keep_first_imu_estimation_ = false;  // 在没有建立地图前，是否要使用前几帧的IMU状态

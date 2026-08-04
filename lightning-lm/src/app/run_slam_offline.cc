@@ -6,6 +6,7 @@
 #include <glog/logging.h>
 
 #include "core/system/slam.h"
+#include "core/lio/laser_mapping.h"
 #include "ui/pangolin_window.h"
 #include "utils/timer.h"
 #include "wrapper/bag_io.h"
@@ -49,6 +50,7 @@ int main(int argc, char** argv) {
     lightning::YAML_IO yaml(FLAGS_config);
     std::string lidar_topic = yaml.GetValue<std::string>("common", "lidar_topic");
     std::string imu_topic = yaml.GetValue<std::string>("common", "imu_topic");
+    std::string odom_topic = yaml.GetValue<std::string>("common", "odom_topic");
 
     rosbag
         /// IMU 的处理
@@ -57,6 +59,13 @@ int main(int argc, char** argv) {
                           slam.ProcessIMU(imu);
                           return true;
                       })
+
+        /// odom 的处理
+        .AddOdomHandle(odom_topic,
+                       [&slam](const OdomPtr &odom) {
+                           slam.Lio()->ProcessOdom(odom);
+                           return true;
+                       })
 
         /// lidar 的处理
         .AddPointCloud2Handle(lidar_topic,

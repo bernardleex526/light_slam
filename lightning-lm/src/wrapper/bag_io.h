@@ -107,16 +107,24 @@ class RosbagIO {
     }
 
     /// odom 处理
-    // RosbagIO &AddOdomHandle(const std::string &topic_name, OdomHandle f) {
-    //     return AddHandle(topic_name, [f, this](const MsgType &m) -> bool {
-    //         auto msg = std::make_shared<nav_msgs::msg::Odometry>();
-    //         rclcpp::SerializedMessage data(*m->serialized_data);
-    //         seri_odom_.deserialize_message(&data, msg.get());
+    RosbagIO &AddOdomHandle(const std::string &topic_name, OdomHandle f) {
+        return AddHandle(topic_name, [f, this](const MsgType &m) -> bool {
+            auto msg = std::make_shared<nav_msgs::msg::Odometry>();
+            rclcpp::SerializedMessage data(*m->serialized_data);
+            seri_odom_.deserialize_message(&data, msg.get());
 
-    //         /// nav_msg 的 odometry 转 odom
-    //         return f(msg);
-    //     });
-    // }
+            OdomPtr odom = std::make_shared<Odom>();
+            odom->timestamp_ = ToSec(msg->header.stamp);
+            odom->pose = SE3(Quatd(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
+                                   msg->pose.pose.orientation.y, msg->pose.pose.orientation.z),
+                             Vec3d(msg->pose.pose.position.x, msg->pose.pose.position.y,
+                                   msg->pose.pose.position.z));
+            odom->linear = Vec3d(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
+            odom->angular = Vec3d(msg->twist.twist.angular.x, msg->twist.twist.angular.y, msg->twist.twist.angular.z);
+
+            return f(odom);
+        });
+    }
 
     /// 清除现有的处理函数
     void CleanProcessFunc() { process_func_.clear(); }

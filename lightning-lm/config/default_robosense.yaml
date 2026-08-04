@@ -4,6 +4,7 @@ common:
   lidar_topic: "/LIDAR/POINTS"
   livox_lidar_topic: "/livox/lidar"
   imu_topic: "/IMU"
+  odom_topic: "/odom_wheel"
 
 # fasterlio 参数
 fasterlio:
