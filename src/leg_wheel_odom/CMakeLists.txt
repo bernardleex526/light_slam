@@ -10,6 +10,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -31,6 +32,11 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_kinematics test/test_kinematics.cpp)
   target_link_libraries(test_kinematics leg_wheel_odom_core)
+
+  ament_add_gtest(test_node test/test_node.cpp)
+  target_link_libraries(test_node leg_wheel_odom_core)
+  ament_target_dependencies(test_node
+    rclcpp sensor_msgs nav_msgs geometry_msgs std_msgs)
 endif()
 
 install(DIRECTORY include/ DESTINATION include)
