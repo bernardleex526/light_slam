@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
     lightning::YAML_IO yaml(FLAGS_config);
     std::string lidar_topic = yaml.GetValue<std::string>("common", "lidar_topic");
     std::string imu_topic = yaml.GetValue<std::string>("common", "imu_topic");
-    std::string odom_topic = yaml.GetValue<std::string>("common", "odom_topic", "/odom_wheel");
+    std::string odom_topic = yaml.GetValueOrDefault<std::string>("common", "odom_topic", "/odom_wheel");
 
     rosbag
         /// IMU 的处理

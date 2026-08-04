@@ -41,7 +41,7 @@ class YAML_IO {
     }
     // 读取两层yaml参数，键缺失时返回默认值
     template <typename T>
-    T GetValue(const std::string &node, const std::string &key, const T &default_value) const {
+    T GetValueOrDefault(const std::string &node, const std::string &key, const T &default_value) const {
         assert(is_opened_);
         const YAML::Node &n = yaml_node_[node][key];
         return n.IsDefined() ? n.as<T>() : default_value;
