@@ -1,2 +1,7 @@
 # lightning-lm 为上游 clone，后续 fork 独立管理
 lightning-lm/
+
+# colcon 工作区构建产物
+build/
+install/
+log/
