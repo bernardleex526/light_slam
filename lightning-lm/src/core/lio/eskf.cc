@@ -125,6 +125,8 @@ void ESKF::Update(ESKF::ObsType obs, const double& R) {
     update_num += 1;
     for (int i = -1; i < maximum_iter_; i++) {
         custom_obs_model_.valid_ = true;
+        custom_obs_model_.HTH_.setZero();
+        custom_obs_model_.HTr_.setZero();
 
         /// 计算observation function，主要是residual_, h_x_, s_
         /// x_ 在每次迭代中都是更新的，线性化点也会更新

@@ -8,6 +8,8 @@ TEST(WheelObs, ConstraintStructure) {
     SE3 pred(SO3(), Vec3d(1.0, 0.0, 0.0));
     SE3 meas(SO3(), Vec3d(1.0, 0.0, 0.0));
     ESKF::CustomObservationModel obs;
+    obs.HTH_.setZero();
+    obs.HTr_.setZero();
     BuildWheelObs(pred, meas, 1.0, obs);
 
     EXPECT_DOUBLE_EQ(obs.HTH_(0, 0), 1.0);  // x 行有约束
@@ -24,6 +26,8 @@ TEST(WheelObs, ResidualSign) {
     SE3 pred(SO3(), Vec3d(1.0, 0.0, 0.0));
     SE3 meas(SO3(), Vec3d(1.5, 0.0, 0.0));
     ESKF::CustomObservationModel obs;
+    obs.HTH_.setZero();
+    obs.HTr_.setZero();
     BuildWheelObs(pred, meas, 1.0, obs);
     EXPECT_GT(obs.HTr_(0), 0.0);
 }
@@ -32,6 +36,10 @@ TEST(WheelObs, WeightScaling) {
     SE3 pred(SO3(), Vec3d(1.0, 0.0, 0.0));
     SE3 meas(SO3(), Vec3d(1.5, 0.0, 0.0));
     ESKF::CustomObservationModel a, b;
+    a.HTH_.setZero();
+    a.HTr_.setZero();
+    b.HTH_.setZero();
+    b.HTr_.setZero();
     BuildWheelObs(pred, meas, 1.0, a);
     BuildWheelObs(pred, meas, 4.0, b);
     EXPECT_NEAR(b.HTH_(0, 0), 4.0 * a.HTH_(0, 0), 1e-9);

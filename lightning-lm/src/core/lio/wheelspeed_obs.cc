@@ -18,8 +18,8 @@ void BuildWheelObs(const SE3 &pred_inc, const SE3 &meas_inc, double weight, ESKF
     r[1] = r_pos[1];
     r[5] = r_rot[2];
 
-    obs.HTH_ = J.transpose() * J * weight;
-    obs.HTr_ = J.transpose() * r * weight;
+    obs.HTH_ += J.transpose() * J * weight;
+    obs.HTr_ += J.transpose() * r * weight;
     obs.lidar_residual_mean_ += r.squaredNorm();  // 供收敛判断（与 lidar 残差共用接口）
 }
 
