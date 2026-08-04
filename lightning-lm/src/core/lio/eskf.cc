@@ -130,13 +130,17 @@ void ESKF::Update(ESKF::ObsType obs, const double& R) {
         /// x_ 在每次迭代中都是更新的，线性化点也会更新
         if (obs == ObsType::LIDAR || obs == ObsType::WHEEL_SPEED_AND_LIDAR) {
             lidar_obs_func_(x_, custom_obs_model_);
-        } else if (obs == ObsType::WHEEL_SPEED) {
+        }
+        if (obs == ObsType::WHEEL_SPEED || obs == ObsType::WHEEL_SPEED_AND_LIDAR) {
             wheelspeed_obs_func_(x_, custom_obs_model_);
-        } else if (obs == ObsType::ACC_AS_GRAVITY) {
+        }
+        if (obs == ObsType::ACC_AS_GRAVITY) {
             acc_as_gravity_obs_func_(x_, custom_obs_model_);
-        } else if (obs == ObsType::GPS) {
+        }
+        if (obs == ObsType::GPS) {
             gps_obs_func_(x_, custom_obs_model_);
-        } else if (obs == ObsType::BIAS) {
+        }
+        if (obs == ObsType::BIAS) {
             bias_obs_func_(x_, custom_obs_model_);
         }
 

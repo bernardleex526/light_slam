@@ -59,4 +59,11 @@ add_subdirectory(thirdparty/livox_ros_driver)
 
 add_subdirectory(src)
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_wheelspeed_obs tests/test_wheelspeed_obs.cpp)
+  target_include_directories(test_wheelspeed_obs PRIVATE src)
+  target_link_libraries(test_wheelspeed_obs lightning.libs)
+endif()
+
 ament_package()

@@ -125,6 +125,8 @@ class LaserMapping {
 
     void ObsModel(NavState &s, ESKF::CustomObservationModel &obs);
 
+    void WheelSpeedObsModel(NavState &s, ESKF::CustomObservationModel &obs);
+
     inline void PointBodyToWorld(const PointType &pi, PointType &po) {
         Vec3d p_global(state_point_.rot_ *
                            (offset_R_lidar_fixed_ * pi.getVector3fMap().cast<double>() + offset_t_lidar_fixed_) +
@@ -196,6 +198,8 @@ class LaserMapping {
     std::deque<OdomPtr> odom_buffer_;  // 轮速里程计缓存
     SE3 prev_frame_pose_;              // 上一帧状态位姿（轮速观测预测用）
     bool last_frame_degenerate_ = false;  // 上一帧是否退化（轮速增强用）
+    double wheel_odom_weight_ = 1.0;      // 轮速观测权重（Task 5 接入 yaml）
+    double wheel_degeneracy_boost_ = 1.0; // 退化帧轮速权重增益（Task 5 接入 yaml）
 
     /// options
     bool keep_first_imu_estimation_ = false;  // 在没有建立地图前，是否要使用前几帧的IMU状态

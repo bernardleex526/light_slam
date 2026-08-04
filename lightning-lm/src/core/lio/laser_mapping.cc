@@ -29,6 +29,9 @@ bool LaserMapping::Init(const std::string &config_yaml) {
     eskf_options.max_iterations_ = fasterlio::NUM_MAX_ITERATIONS;
     eskf_options.epsi_ = 1e-3 * Eigen::Matrix<double, ESKF::state_dim_, 1>::Ones();
     eskf_options.lidar_obs_func_ = [this](NavState &s, ESKF::CustomObservationModel &obs) { ObsModel(s, obs); };
+    eskf_options.wheelspeed_obs_func_ = [this](NavState &s, ESKF::CustomObservationModel &obs) {
+        WheelSpeedObsModel(s, obs);
+    };
     eskf_options.use_aa_ = use_aa_;
     kf_.Init(eskf_options);
 
