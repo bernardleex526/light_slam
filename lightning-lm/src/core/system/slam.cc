@@ -13,6 +13,7 @@
 #include <yaml-cpp/yaml.h>
 #include <filesystem>
 #include <opencv2/opencv.hpp>
+#include <std_msgs/msg/float32_multi_array.hpp>
 
 namespace lightning {
 
@@ -130,6 +131,17 @@ bool SlamSystem::Init(const std::string& yaml_path) {
                     lio_->ProcessOdom(odom);
                 });
         }
+
+        degeneracy_pub_ = node_->create_publisher<std_msgs::msg::Float32MultiArray>("/degeneracy_status", 10);
+        degeneracy_timer_ = node_->create_wall_timer(std::chrono::milliseconds(200), [this]() {
+            int nullity = 0;
+            Vec6d eigenvalues = Vec6d::Zero();
+            if (lio_) lio_->GetDegeneracyInfo(nullity, eigenvalues);
+            std_msgs::msg::Float32MultiArray msg;
+            msg.data.push_back(nullity);
+            for (int i = 0; i < 6; ++i) msg.data.push_back(eigenvalues[i]);
+            degeneracy_pub_->publish(msg);
+        });
 
         savemap_service_ = node_->create_service<SaveMapService>(
             "lightning/save_map", [this](const SaveMapService::Request::SharedPtr& req,

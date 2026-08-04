@@ -25,15 +25,19 @@ bool LaserMapping::Init(const std::string &config_yaml) {
     ivox_ = std::make_shared<IVoxType>(ivox_options_);
 
     // esekf init
-    ESKF::Options eskf_options;
-    eskf_options.max_iterations_ = fasterlio::NUM_MAX_ITERATIONS;
-    eskf_options.epsi_ = 1e-3 * Eigen::Matrix<double, ESKF::state_dim_, 1>::Ones();
-    eskf_options.lidar_obs_func_ = [this](NavState &s, ESKF::CustomObservationModel &obs) { ObsModel(s, obs); };
-    eskf_options.wheelspeed_obs_func_ = [this](NavState &s, ESKF::CustomObservationModel &obs) {
+    eskf_options_.max_iterations_ = fasterlio::NUM_MAX_ITERATIONS;
+    eskf_options_.epsi_ = 1e-3 * Eigen::Matrix<double, ESKF::state_dim_, 1>::Ones();
+    eskf_options_.lidar_obs_func_ = [this](NavState &s, ESKF::CustomObservationModel &obs) { ObsModel(s, obs); };
+    eskf_options_.wheelspeed_obs_func_ = [this](NavState &s, ESKF::CustomObservationModel &obs) {
         WheelSpeedObsModel(s, obs);
     };
-    eskf_options.use_aa_ = use_aa_;
-    kf_.Init(eskf_options);
+    eskf_options_.use_aa_ = use_aa_;
+    eskf_options_.degeneracy_callback_ = [this](int nullity, const Vec6d &eigenvalues) {
+        last_nullity_ = nullity;
+        last_eigenvalues_ = eigenvalues;
+        last_frame_degenerate_ = nullity > 0;
+    };
+    kf_.Init(eskf_options_);
 
     return true;
 }
@@ -86,6 +90,11 @@ bool LaserMapping::LoadParamsFromYAML(const std::string &yaml_file) {
         bool use_imu_filter = yaml["fasterlio"]["imu_filter"].as<bool>();
         p_imu_->SetUseIMUFilter(use_imu_filter);
         options_.proj_kfs_ = yaml["fasterlio"]["proj_kfs"].as<bool>();
+
+        wheel_odom_weight_ = yaml["fasterlio"]["wheel_odom_weight"].as<double>(1.0);
+        wheel_degeneracy_boost_ = yaml["fasterlio"]["wheel_degeneracy_boost"].as<double>(1.0);
+        eskf_options_.degeneracy_threshold_ratio_ = yaml["fasterlio"]["degeneracy_threshold_ratio"].as<double>(1e-3);
+        eskf_options_.degeneracy_cov_inflation_ = yaml["fasterlio"]["degeneracy_cov_inflation"].as<double>(1.02);
 
     } catch (...) {
         LOG(ERROR) << "bad conversion";

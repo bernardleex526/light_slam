@@ -354,6 +354,10 @@ void ESKF::Update(ESKF::ObsType obs, const double& R) {
                 P_.block<pose_obs_dim_, pose_obs_dim_>(0, 0) *= options_.degeneracy_cov_inflation_;
             }
 
+            if (options_.degeneracy_callback_) {
+                options_.degeneracy_callback_(nullity, eigen_values);
+            }
+
             break;
         }
     }

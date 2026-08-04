@@ -9,6 +9,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <std_msgs/msg/float32_multi_array.hpp>
 #include <string>
 
 #include "lightning/srv/save_map.hpp"
@@ -108,6 +109,9 @@ class SlamSystem {
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_ = nullptr;
     rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr livox_sub_ = nullptr;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_ = nullptr;
+
+    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr degeneracy_pub_ = nullptr;
+    rclcpp::TimerBase::SharedPtr degeneracy_timer_ = nullptr;
 };
 }  // namespace lightning
 

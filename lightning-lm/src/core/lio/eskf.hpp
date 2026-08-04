@@ -84,6 +84,9 @@ class ESKF {
         double min_cov_diag_ = 1e-9;
         double degeneracy_threshold_ratio_ = 1e-3;
         double degeneracy_cov_inflation_ = 1.02;
+
+        /// 退化回调：更新成功时上报退化方向数与特征值（可空）
+        std::function<void(int nullity, const Vec6d &eigenvalues)> degeneracy_callback_;
         double max_update_translation_step_ = 0.5;
         double max_update_rotation_step_deg_ = 5.0;
         double max_update_velocity_step_ = 2.0;

@@ -93,6 +93,12 @@ class LaserMapping {
     /// 获取激光的状态
     NavState GetState() const { return state_point_; }
 
+    /// 获取上一帧退化信息
+    void GetDegeneracyInfo(int &nullity, Vec6d &eigenvalues) const {
+        nullity = last_nullity_;
+        eigenvalues = last_eigenvalues_;
+    }
+
     /// 获取IMU状态
     NavState GetIMUState() const {
         if (p_imu_->IsIMUInited()) {
@@ -198,6 +204,8 @@ class LaserMapping {
     std::deque<OdomPtr> odom_buffer_;  // 轮速里程计缓存
     SE3 prev_frame_pose_;              // 上一帧状态位姿（轮速观测预测用）
     bool last_frame_degenerate_ = false;  // 上一帧是否退化（轮速增强用）
+    int last_nullity_ = 0;
+    Vec6d last_eigenvalues_ = Vec6d::Zero();
     double wheel_odom_weight_ = 1.0;      // 轮速观测权重（Task 5 接入 yaml）
     double wheel_degeneracy_boost_ = 1.0; // 退化帧轮速权重增益（Task 5 接入 yaml）
 
@@ -230,6 +238,8 @@ class LaserMapping {
 
     ESKF kf_;      // 点云时刻的IMU状态
     ESKF kf_imu_;  // imu 最新时刻的eskf状态
+
+    ESKF::Options eskf_options_;  // ESKF 参数（Task 5：degeneracy 参数由 yaml 写入）
 
     NavState state_point_;  // ekf current state
 
