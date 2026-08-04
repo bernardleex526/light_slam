@@ -1,0 +1,13 @@
+leg_wheel_odom:
+  ros__parameters:
+    wheel_radius: 0.05
+    track_width: 0.137
+    slip_ratio_threshold: 0.3
+    contact_effort_threshold: 5.0
+    publish_rate: 50.0
+    joint_states_topic: /joint_states
+    imu_topic: /imu
+    leg_params:
+      hip_len: 0.06
+      thigh_len: 0.28
+      calf_len: 0.28

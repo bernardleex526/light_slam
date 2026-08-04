@@ -35,4 +35,13 @@ endif()
 
 install(DIRECTORY include/ DESTINATION include)
 ament_export_include_directories(include)
+
+add_executable(leg_wheel_odom_node src/leg_wheel_odom_node.cpp)
+target_include_directories(leg_wheel_odom_node PRIVATE include)
+target_link_libraries(leg_wheel_odom_node leg_wheel_odom_core)
+ament_target_dependencies(leg_wheel_odom_node
+  rclcpp sensor_msgs nav_msgs geometry_msgs)
+install(TARGETS leg_wheel_odom_node DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
+
 ament_package()
