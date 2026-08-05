@@ -1,0 +1,22 @@
+<library path="gazebo_hardware_plugins">
+  <class
+    name="gazebo_ros2_control/GazeboSystem"
+    type="gazebo_ros2_control::GazeboSystem"
+    base_class_type="gazebo_ros2_control::GazeboSystemInterface">
+    <description>
+      GazeboPositionJoint
+    </description>
+  </class>
+  <class
+    name="gazebo_ros2_control/GazeboSystem"
+    type="gazebo_ros2_control::GazeboSystem"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>
+      ControllerManager-side entry: the factory for this class is registered
+      under hardware_interface::SystemInterface in gazebo_system.cpp (see the
+      second PLUGINLIB_EXPORT_CLASS there). Required because
+      controller_manager's resource manager discovers hardware plugins
+      exclusively through a SystemInterface classloader.
+    </description>
+  </class>
+</library>
