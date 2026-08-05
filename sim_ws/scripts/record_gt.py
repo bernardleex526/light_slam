@@ -19,17 +19,26 @@ class GtRecorder(Node):
         self.out = out
         self.duration = duration
         self.sim_t = 0.0
-        qos = rclpy.qos.QoSProfile(
-            depth=10, reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT)
+        self.last_t = -1.0
+        # /model_states is RELIABLE (gazebo_ros_state default); a best_effort
+        # subscription silently matches nothing. /clock is BEST_EFFORT.
+        ms_qos = rclpy.qos.QoSProfile(depth=10)
+        clk_qos = rclpy.qos.QoSProfile(
+            depth=2000, reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT)
         self.sub = self.create_subscription(ModelStates, '/model_states',
-                                            self.cb, qos)
+                                            self.cb, ms_qos)
         self.clock_sub = self.create_subscription(Clock, '/clock',
-                                                  self.clock_cb, qos)
+                                                  self.clock_cb, clk_qos)
 
     def clock_cb(self, msg):
         self.sim_t = msg.clock.sec + msg.clock.nanosec * 1e-9
 
     def cb(self, msg):
+        if self.sim_t <= 0.0:
+            return  # /clock not yet discovered: dropping keeps timestamps monotonic
+        if self.sim_t <= self.last_t:
+            return  # 严格递增：/clock 1ms 量化会产生重复时间戳
+        self.last_t = self.sim_t
         if 'm20' not in msg.name:
             return
         i = list(msg.name).index('m20')

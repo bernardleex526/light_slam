@@ -8,47 +8,33 @@
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1</real_time_factor>
       <real_time_update_rate>1000</real_time_update_rate>
-      <ode>
-        <solver>
-          <type>quick</type>
-          <iters>100</iters>
-          <sor>1.3</sor>
-        </solver>
-        <constraints>
-          <cfm>0.0</cfm>
-          <erp>0.2</erp>
-          <contact_max_correcting_vel>0.5</contact_max_correcting_vel>
-          <contact_surface_layer>0.001</contact_surface_layer>
-        </constraints>
-      </ode>
     </physics>
-
     <model name="wall_south_w">
       <static>true</static>
       <link name="link">
         <collision name="collision">
-          <geometry><box><size>-1.0000000000000004 0.2 2.0</size></box></geometry>
+          <geometry><box><size>14.4 0.2 2.0</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry><box><size>-1.0000000000000004 0.2 2.0</size></box></geometry>
+          <geometry><box><size>14.4 0.2 2.0</size></box></geometry>
           <material><ambient>0.7 0.7 0.7 1</ambient></material>
         </visual>
       </link>
-      <pose>-1.0000000000000004 0 1.0 0 0 0.0</pose>
+      <pose>7.2 0 1.0 0 0 0.0</pose>
     </model>
 
     <model name="wall_south_e">
       <static>true</static>
       <link name="link">
         <collision name="collision">
-          <geometry><box><size>0.2000000000000014 0.2 2.0</size></box></geometry>
+          <geometry><box><size>14.4 0.2 2.0</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry><box><size>0.2000000000000014 0.2 2.0</size></box></geometry>
+          <geometry><box><size>14.4 0.2 2.0</size></box></geometry>
           <material><ambient>0.7 0.7 0.7 1</ambient></material>
         </visual>
       </link>
-      <pose>31.0 0 1.0 0 0 0.0</pose>
+      <pose>22.8 0 1.0 0 0 0.0</pose>
     </model>
 
     <model name="wall_north">
@@ -429,11 +415,5 @@
       <pose>29.0 3.6 1 0 0 0</pose>
     </model>
 
-      <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
-      <ros>
-        <remapping>~/link_states:=/gazebo/link_states</remapping>
-        <remapping>~/model_states:=/gazebo/model_states</remapping>
-      </ros>
-    </plugin>
   </world>
 </sdf>

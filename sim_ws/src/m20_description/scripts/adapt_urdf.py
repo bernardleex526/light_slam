@@ -137,6 +137,20 @@ def main() -> int:
     #     ElementTree.fromstring(str), which rejects encoding declarations
     text = re.sub(r"<\?xml[^>]*\?>\s*", "", text, count=1)
 
+    # 1b2. WHEEL AXIS FIX: the raw M20 URDF gives all 4 wheel joints axis
+    #     (0 -1 0); positive joint velocity then rolls the robot BACKWARD
+    #     (contact point velocity = ω × (0,0,-r) → -x). diff_drive_controller
+    #     assumes positive wheel velocity == forward. Flip to (0 1 0): both
+    #     sides then roll forward for positive velocity (verified by cross
+    #     product and by the driving test: cmd_vel.x>0 → GT x increases).
+    for w in WHEELS:
+        anchor = f'    <joint name="{w}_wheel_joint" type="continuous">'
+        idx = text.index(anchor)
+        end = text.index("</joint>", idx)
+        jtag = text[idx:end]
+        jtag = re.sub(r'<axis xyz="0 -1 0"/>', '<axis xyz="0 1 0"/>', jtag, count=1)
+        text = text[:idx] + jtag + text[end:]
+
     # 1c. joint damping on the leg joints (stabilizes the standing pose:
     #     undamped position-controlled legs diverge in ODE after ~2 min)
     for j in ["fl_hipx", "fl_hipy", "fl_knee", "fr_hipx", "fr_hipy", "fr_knee",

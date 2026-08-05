@@ -17,10 +17,14 @@ class LioRecorder(Node):
         super().__init__('lio_recorder')
         self.out = out
         self.duration = duration
+        self.last_t = -1.0
         self.sub = self.create_subscription(PoseStamped, '/lio_pose', self.cb, 10)
 
     def cb(self, msg):
         t = (msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9)
+        if t <= self.last_t:
+            return  # 严格递增：/clock 1ms 量化会产生重复时间戳
+        self.last_t = t
         p = msg.pose
         self.out.write(
             f'{t:.6f} {p.position.x:.6f} {p.position.y:.6f} {p.position.z:.6f} '

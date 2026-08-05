@@ -1,6 +1,9 @@
 leg_wheel_odom:
   ros__parameters:
-    wheel_radius: 0.05
+    # 轮半径标定（2026-08-05 实测，SIM 时间）：cmd_vel.x=0.5 → 轮 10 rad/s →
+    # 仿真中实际前移 ~0.91 m/s（= 碰撞体半径 0.09 × 轮速；WSL 下仿真 RTF≈0.83，
+    # 墙钟测速会低估 15%）。原 0.05 使 /odom_wheel 低估真实速度 45%。
+    wheel_radius: 0.091
     track_width: 0.137
     slip_ratio_threshold: 0.3
     contact_effort_threshold: 5.0

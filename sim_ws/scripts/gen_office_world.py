@@ -66,10 +66,15 @@ def build():
         '    </physics>',
     ]
 
-    # south outer wall (y=0) with 1.2 m entrance at x=15
+    # south outer wall (y=0) with 1.2 m entrance at x=15.
+    # Segments: [0, cx-DOOR/2] and [cx+DOOR/2, 30]; center = midpoint,
+    # size = length (previously the length formula used a stale 15.4 offset,
+    # producing a negative box size and a 0.2 m sliver).
     cx = 15.0
-    parts.append(wall("wall_south_w", cx - 15.4 - DOOR / 2, 0, (cx - 15.4 - DOOR / 2, TH, H)))
-    parts.append(wall("wall_south_e", cx + 15.4 + DOOR / 2, 0, (30.0 - (cx + 15.4) + DOOR / 2, TH, H)))
+    sw = cx - DOOR / 2
+    parts.append(wall("wall_south_w", sw / 2, 0, (sw, TH, H)))
+    se = 30.0 - (cx + DOOR / 2)
+    parts.append(wall("wall_south_e", (cx + DOOR / 2) + se / 2, 0, (se, TH, H)))
 
     # north outer wall (y=8)
     parts.append(wall("wall_north", 15, 8 + TH / 2, (30, TH, H)))
