@@ -208,6 +208,8 @@ class LaserMapping {
     Vec6d last_eigenvalues_ = Vec6d::Zero();
     double wheel_odom_weight_ = 1.0;      // 轮速观测权重（Task 5 接入 yaml）
     double wheel_degeneracy_boost_ = 1.0; // 退化帧轮速权重增益（Task 5 接入 yaml）
+    double wheel_x_accum_ = 0.0;          // 轮速死推算 x 累积（退化走廊接管 x）
+    bool wheel_x_inited_ = false;
 
     /// options
     bool keep_first_imu_estimation_ = false;  // 在没有建立地图前，是否要使用前几帧的IMU状态

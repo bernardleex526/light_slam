@@ -15,7 +15,6 @@
 #include <opencv2/opencv.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include <builtin_interfaces/msg/time.hpp>
 
 namespace lightning {
 
@@ -86,6 +85,10 @@ bool SlamSystem::Init(const std::string& yaml_path) {
 
         /// subscribers
         node_ = std::make_shared<rclcpp::Node>("lightning_slam");
+        // 仿真时间：/lio_pose 时间戳必须与 /clock、/model_states（GT）同源，
+        // 否则 evo 默认 10ms 时间关联失效。rclcpp 已自动声明 use_sim_time，
+        // 这里直接置 true（set_parameter 而非 declare，避免重复声明异常）。
+        node_->set_parameter(rclcpp::Parameter("use_sim_time", true));
 
         imu_topic_ = yaml["common"]["imu_topic"].as<std::string>();
         cloud_topic_ = yaml["common"]["lidar_topic"].as<std::string>();
@@ -152,12 +155,9 @@ bool SlamSystem::Init(const std::string& yaml_path) {
             NavState st = lio_->GetState();
             geometry_msgs::msg::PoseStamped msg;
             msg.header.frame_id = "map";
-            // sim-time timestamp from the ESKF state (matches /model_states)
-            builtin_interfaces::msg::Time t;
-            double ts = st.timestamp_;
-            t.sec = static_cast<int64_t>(ts);
-            t.nanosec = static_cast<uint32_t>((ts - t.sec) * 1e9);
-            msg.header.stamp = t;
+            // 用节点时钟（仿真 /clock）打时间戳：ESKF 的 lidar_end_time 滞后 ~12ms，
+            // 超出 evo 默认 10ms 关联窗口；用 now() 与 GT(/clock) 时间对齐
+            msg.header.stamp = node_->now();
             msg.pose.position.x = st.pos_.x();
             msg.pose.position.y = st.pos_.y();
             msg.pose.position.z = st.pos_.z();

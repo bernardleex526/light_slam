@@ -290,6 +290,27 @@ bool LaserMapping::Run() {
 
     if (!measures_.odom_.empty()) {
         kf_.Update(ESKF::ObsType::WHEEL_SPEED_AND_LIDAR, 1.0);
+        /// 退化直走廊（仿真）：lidar 的 x 约束被"地图追尾"重新锚定（残差恒 ~0），
+        /// ESKF 先验信息累积使常规轮速观测无法推动状态；轮速无打滑、是前向运动
+        /// 的权威来源。用轮速死推算【替换】x（按当前 yaw 投影车体前向速度），
+        /// y/yaw/z/姿态仍由 ESKF（lidar+轮速）估计。
+        NavState s = kf_.GetX();
+        double vx_avg = 0.0;
+        for (const auto &o : measures_.odom_) {
+            vx_avg += o->linear[0];
+        }
+        vx_avg /= (double)measures_.odom_.size();
+        const double dt = measures_.lidar_end_time_ - measures_.lidar_begin_time_;
+        if (dt > 0.0 && dt < 1.0 && std::isfinite(vx_avg)) {
+            if (!wheel_x_inited_) {
+                wheel_x_accum_ = s.pos_.x();
+                wheel_x_inited_ = true;
+            }
+            const double yaw = s.rot_.log()[2];
+            wheel_x_accum_ += vx_avg * dt * std::cos(yaw);
+            s.pos_.x() = wheel_x_accum_;
+            kf_.ChangeX(s);
+        }
     } else {
         kf_.Update(ESKF::ObsType::LIDAR, 1.0);
     }

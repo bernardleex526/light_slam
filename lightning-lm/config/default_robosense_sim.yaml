@@ -1,5 +1,7 @@
 # 针对 Gazebo M20 仿真的配置（激光链：/points_raw -> ring_fill -> /rs_points）
-# lidar_type 2 = Velodyne（按 ring 字段生成扫描时间戳），scan_line 16 与 ring_fill 一致
+# lidar_type 2 = Velodyne：VelodyneHandler 需要 ring(uint16) + time(float32, 微秒)
+# 字段（ring_fill_node 已补齐）。time 单位链：字段[us] * time_scale(1e-3) -> ms ->
+# /1000 -> 秒（imu_processing UndistortPcl 与 IMU offset_time 比较）。
 common:
   dataset: "sim_m20"
   lidar_topic: "/rs_points"
@@ -26,8 +28,8 @@ fasterlio:
 
   use_aa: false  # use anderson-acceleration
 
-  acc_cov: 0.1
-  gyr_cov: 0.1
+  acc_cov: 10.0
+  gyr_cov: 10.0
   b_acc_cov: 0.0001
   b_gyr_cov: 0.0001
   extrinsic_est_en: false      # true: enable the online estimation of IMU-LiDAR extrinsic
@@ -47,7 +49,10 @@ fasterlio:
   plane_icp_weight: 500.0
   proj_kfs: false
 
-  wheel_odom_weight: 1.0
+  wheel_odom_weight: 100000.0   # 轮速观测权重：硬约束（仿真轮无打滑，是走廊退化
+                                # x 方向的权威运动源）。必须 ≥ lidar 在该方向的
+                                # 虚假信息量（走廊端面"地图追尾"产生 ~7e4），否则
+                                # 退化方向被先验钉死、状态无法跟随轮速。
   wheel_degeneracy_boost: 4.0
   degeneracy_threshold_ratio: 0.001
   degeneracy_cov_inflation: 1.02
