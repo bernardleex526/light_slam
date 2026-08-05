@@ -10,6 +10,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <string>
 
 #include "lightning/srv/save_map.hpp"
@@ -112,6 +113,8 @@ class SlamSystem {
 
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr degeneracy_pub_ = nullptr;
     rclcpp::TimerBase::SharedPtr degeneracy_timer_ = nullptr;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr lio_pose_pub_ = nullptr;
+    rclcpp::TimerBase::SharedPtr lio_pose_timer_ = nullptr;
 };
 }  // namespace lightning
 

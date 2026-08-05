@@ -14,6 +14,8 @@
 #include <filesystem>
 #include <opencv2/opencv.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <builtin_interfaces/msg/time.hpp>
 
 namespace lightning {
 
@@ -141,6 +143,30 @@ bool SlamSystem::Init(const std::string& yaml_path) {
             msg.data.push_back(nullity);
             for (int i = 0; i < 6; ++i) msg.data.push_back(eigenvalues[i]);
             degeneracy_pub_->publish(msg);
+        });
+
+        lio_pose_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
+            "/lio_pose", 10);
+        lio_pose_timer_ = node_->create_wall_timer(std::chrono::milliseconds(100), [this]() {
+            if (!lio_) return;
+            NavState st = lio_->GetState();
+            geometry_msgs::msg::PoseStamped msg;
+            msg.header.frame_id = "map";
+            // sim-time timestamp from the ESKF state (matches /model_states)
+            builtin_interfaces::msg::Time t;
+            double ts = st.timestamp_;
+            t.sec = static_cast<int64_t>(ts);
+            t.nanosec = static_cast<uint32_t>((ts - t.sec) * 1e9);
+            msg.header.stamp = t;
+            msg.pose.position.x = st.pos_.x();
+            msg.pose.position.y = st.pos_.y();
+            msg.pose.position.z = st.pos_.z();
+            Eigen::Quaterniond q(st.rot_.unit_quaternion());
+            msg.pose.orientation.x = q.x();
+            msg.pose.orientation.y = q.y();
+            msg.pose.orientation.z = q.z();
+            msg.pose.orientation.w = q.w();
+            lio_pose_pub_->publish(msg);
         });
 
         savemap_service_ = node_->create_service<SaveMapService>(
