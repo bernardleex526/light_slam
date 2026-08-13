@@ -9,7 +9,7 @@
 #include "ui/pangolin_window.h"
 #include "wrapper/ros_utils.h"
 
-DEFINE_string(config, "./config/default.yaml", "配置文件");
+DEFINE_string(config, "./config/default_m20.yaml", "配置文件");
 
 /// 运行定位的测试
 int main(int argc, char** argv) {

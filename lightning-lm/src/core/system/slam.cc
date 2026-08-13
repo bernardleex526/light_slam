@@ -24,6 +24,7 @@ SlamSystem::SlamSystem(lightning::SlamSystem::Options options) : options_(option
 }
 
 bool SlamSystem::Init(const std::string& yaml_path) {
+    yaml_path_ = yaml_path;
     lio_ = std::make_shared<LaserMapping>();
     if (!lio_->Init(yaml_path)) {
         LOG(ERROR) << "failed to init lio module";
@@ -85,10 +86,11 @@ bool SlamSystem::Init(const std::string& yaml_path) {
 
         /// subscribers
         node_ = std::make_shared<rclcpp::Node>("lightning_slam");
-        // 仿真时间：/lio_pose 时间戳必须与 /clock、/model_states（GT）同源，
-        // 否则 evo 默认 10ms 时间关联失效。rclcpp 已自动声明 use_sim_time，
-        // 这里直接置 true（set_parameter 而非 declare，避免重复声明异常）。
-        node_->set_parameter(rclcpp::Parameter("use_sim_time", true));
+        // use_sim_time 由 yaml system.use_sim_time 控制（默认 false，真机用墙钟；
+        // 仿真置 true，使 /lio_pose 与 /clock、/model_states 同源）。
+        // rclcpp 已自动声明 use_sim_time，这里直接 set_parameter 即可。
+        bool use_sim_time = yaml["system"]["use_sim_time"].as<bool>(false);
+        node_->set_parameter(rclcpp::Parameter("use_sim_time", use_sim_time));
 
         imu_topic_ = yaml["common"]["imu_topic"].as<std::string>();
         cloud_topic_ = yaml["common"]["lidar_topic"].as<std::string>();
@@ -96,7 +98,12 @@ bool SlamSystem::Init(const std::string& yaml_path) {
         odom_topic_ = yaml["common"]["odom_topic"].as<std::string>("/odom_wheel");
 
         rclcpp::QoS qos(10);
-        // qos.best_effort();
+        // 雷达/IMU 等传感器数据建议 best_effort（驱动端常为 best_effort），
+        // 由 yaml system.sensor_best_effort 控制（默认 false 保持兼容）。
+        bool sensor_best_effort = yaml["system"]["sensor_best_effort"].as<bool>(false);
+        if (sensor_best_effort) {
+            qos.best_effort();
+        }
 
         imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
             imu_topic_, qos, [this](sensor_msgs::msg::Imu::SharedPtr msg) {
@@ -230,7 +237,7 @@ void SlamSystem::SaveMap(const std::string& path) {
     // pcl::io::savePCDFileBinaryCompressed(save_path + "/global_raw.pcd", *global_map_raw);
 
     if (options_.with_gridmap_) {
-        /// 存为ROS兼容的模式
+        /// 存为ROS兼容的模式（M20 drmap 要求 occ_grid.pgm + occ_grid.yaml）
         auto map = g2p5_->GetNewestMap()->ToROS();
         const int width = map.info.width;
         const int height = map.info.height;
@@ -251,29 +258,32 @@ void SlamSystem::SaveMap(const std::string& path) {
             }
         }
 
-        cv::imwrite(save_path + "/map.pgm", nav_image);
+        cv::imwrite(save_path + "/occ_grid.pgm", nav_image);
 
-        /// yaml
-        std::ofstream yamlFile(save_path + "/map.yaml");
+        /// yaml（兼容 M20 drmap 的 occ_grid.yaml 格式，见手册 §5.9）
+        // resolution 从 g2p5 配置读取（避免硬编码 0.05 与实际不符）
+        double grid_res = 0.05;
+        try {
+            auto yaml = YAML::LoadFile(yaml_path_);
+            grid_res = yaml["g2p5"]["grid_map_resolution"].as<double>(0.05);
+        } catch (...) {}
+
+        std::ofstream yamlFile(save_path + "/occ_grid.yaml");
         if (!yamlFile.is_open()) {
-            LOG(ERROR) << "failed to write map.yaml";
-            return;  // 文件打开失败
+            LOG(ERROR) << "failed to write occ_grid.yaml";
+            return;
         }
 
         try {
             YAML::Emitter emitter;
             emitter << YAML::BeginMap;
-            emitter << YAML::Key << "image" << YAML::Value << "map.pgm";
-            emitter << YAML::Key << "mode" << YAML::Value << "trinary";
-            emitter << YAML::Key << "width" << YAML::Value << map.info.width;
-            emitter << YAML::Key << "height" << YAML::Value << map.info.height;
-            emitter << YAML::Key << "resolution" << YAML::Value << float(0.05);
+            emitter << YAML::Key << "image" << YAML::Value << "occ_grid.pgm";
+            emitter << YAML::Key << "resolution" << YAML::Value << grid_res;
             std::vector<double> orig{map.info.origin.position.x, map.info.origin.position.y, 0};
             emitter << YAML::Key << "origin" << YAML::Value << orig;
             emitter << YAML::Key << "negate" << YAML::Value << 0;
             emitter << YAML::Key << "occupied_thresh" << YAML::Value << 0.65;
-            emitter << YAML::Key << "free_thresh" << YAML::Value << 0.25;
-
+            emitter << YAML::Key << "free_thresh" << YAML::Value << 0.196;
             emitter << YAML::EndMap;
 
             yamlFile << emitter.c_str();

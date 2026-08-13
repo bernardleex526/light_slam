@@ -66,4 +66,13 @@ if(BUILD_TESTING)
   target_link_libraries(test_wheelspeed_obs lightning.libs)
 endif()
 
+# -------------------------------------------------------------
+# launch 文件与就绪检查脚本安装
+install(DIRECTORY launch
+        DESTINATION share/${PROJECT_NAME}
+)
+install(PROGRAMS launch/topic_ready_check.py
+        DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()

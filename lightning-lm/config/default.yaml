@@ -67,6 +67,8 @@ system:
   lidar_odom_skip_num: 2
   map_path: ./data/new_map/
   pub_tf: true
+  use_sim_time: false         # 仿真置 true，真机置 false
+  sensor_best_effort: false   # 雷达 best_effort QoS（真机建议 true）
 
 loop_closing:
   loop_kf_gap: 20       # 每隔多少个关键帧检查一次

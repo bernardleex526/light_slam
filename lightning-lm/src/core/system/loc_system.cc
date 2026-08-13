@@ -7,6 +7,10 @@
 #include "io/yaml_io.h"
 #include "wrapper/ros_utils.h"
 
+#include <yaml-cpp/yaml.h>
+#include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+
 namespace lightning {
 
 LocSystem::LocSystem(LocSystem::Options options) : options_(options) {
@@ -28,13 +32,29 @@ bool LocSystem::Init(const std::string &yaml_path) {
     LOG(INFO) << "online mode, creating ros2 node ... ";
 
     /// subscribers
-    node_ = std::make_shared<rclcpp::Node>("lightning_slam");
+    node_ = std::make_shared<rclcpp::Node>("lightning_loc");
+
+    // use_sim_time 由 yaml 控制（默认 false，真机用墙钟）
+    bool use_sim_time = false;
+    try {
+        YAML::Node root = YAML::LoadFile(yaml_path);
+        use_sim_time = root["system"]["use_sim_time"].as<bool>(false);
+    } catch (...) {}
+    node_->set_parameter(rclcpp::Parameter("use_sim_time", use_sim_time));
 
     imu_topic_ = yaml.GetValue<std::string>("common", "imu_topic");
     cloud_topic_ = yaml.GetValue<std::string>("common", "lidar_topic");
     livox_topic_ = yaml.GetValue<std::string>("common", "livox_lidar_topic");
 
     rclcpp::QoS qos(10);
+    bool sensor_best_effort = false;
+    try {
+        YAML::Node root = YAML::LoadFile(yaml_path);
+        sensor_best_effort = root["system"]["sensor_best_effort"].as<bool>(false);
+    } catch (...) {}
+    if (sensor_best_effort) {
+        qos.best_effort();
+    }
 
     imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
         imu_topic_, qos, [this](sensor_msgs::msg::Imu::SharedPtr msg) {
@@ -57,10 +77,36 @@ bool LocSystem::Init(const std::string &yaml_path) {
             Timer::Evaluate([&]() { ProcessLidar(cloud); }, "Proc Lidar", true);
         });
 
+    // /ODOM 发布器（M20 planner.service 订阅 /ODOM 作为导航核心输入，见手册 §6.2）
+    odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>("/ODOM", 10);
+
+    // /initialpose 订阅（支持 RViz 2D Pose Estimate 与外部重定位，见手册 §6.4）
+    initialpose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+        "/initialpose", 10, [this](const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
+            SE3 pose(Quatd(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
+                           msg->pose.pose.orientation.y, msg->pose.pose.orientation.z),
+                     Vec3d(msg->pose.pose.position.x, msg->pose.pose.position.y,
+                           msg->pose.pose.position.z));
+            LOG(INFO) << "received /initialpose, setting init pose";
+            SetInitPose(pose);
+        });
+
     if (options_.pub_tf_) {
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(node_);
         loc_->SetTFCallback(
-            [this](const geometry_msgs::msg::TransformStamped &pose) { tf_broadcaster_->sendTransform(pose); });
+            [this](const geometry_msgs::msg::TransformStamped &pose) {
+                tf_broadcaster_->sendTransform(pose);
+                // 同时发布 /ODOM（与 TF 同源，供 M20 planner 使用）
+                nav_msgs::msg::Odometry odom;
+                odom.header = pose.header;
+                odom.header.frame_id = "map";
+                odom.child_frame_id = "base_link";
+                odom.pose.pose.position.x = pose.transform.translation.x;
+                odom.pose.pose.position.y = pose.transform.translation.y;
+                odom.pose.pose.position.z = pose.transform.translation.z;
+                odom.pose.pose.orientation = pose.transform.rotation;
+                odom_pub_->publish(odom);
+            });
     }
 
     bool ret = loc_->Init(yaml_path, map_path);

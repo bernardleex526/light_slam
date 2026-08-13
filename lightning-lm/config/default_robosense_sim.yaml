@@ -79,6 +79,8 @@ system:
   lidar_odom_skip_num: 0
   map_path: ./data/new_map/
   pub_tf: true
+  use_sim_time: true          # 仿真用 /clock
+  sensor_best_effort: false   # 仿真 Gazebo 用 reliable
 
 loop_closing:
   loop_kf_gap: 20       # 每隔多少个关键帧检查一次

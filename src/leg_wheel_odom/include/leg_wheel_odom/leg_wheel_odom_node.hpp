@@ -37,12 +37,13 @@ public:
     wheel_params_.track_width = this->declare_parameter("track_width", 0.137);
     wheel_params_.max_slip_ratio = this->declare_parameter("slip_ratio_threshold", 0.3);
     leg_params_.hip_len = this->declare_parameter("leg_params.hip_len", 0.06);
-    leg_params_.thigh_len = this->declare_parameter("leg_params.thigh_len", 0.28);
-    leg_params_.calf_len = this->declare_parameter("leg_params.calf_len", 0.28);
+    leg_params_.thigh_len = this->declare_parameter("leg_params.thigh_len", 0.25);
+    leg_params_.calf_len = this->declare_parameter("leg_params.calf_len", 0.25);
     contact_effort_th_ = this->declare_parameter("contact_effort_threshold", 5.0);
+    slip_yaw_th_ = this->declare_parameter("slip_yaw_threshold", 0.5);
     publish_rate_ = this->declare_parameter("publish_rate", 50.0);
     auto js_topic = this->declare_parameter("joint_states_topic", "/joint_states");
-    auto imu_topic = this->declare_parameter("imu_topic", "/imu");
+    auto imu_topic = this->declare_parameter("imu_topic", "/IMU");
 
     js_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
       js_topic, 10,
@@ -74,8 +75,7 @@ private:
     std::lock_guard<std::mutex> lock(mtx_);
     imu_linear_.x = msg->linear_acceleration.x;
     imu_linear_.y = msg->linear_acceleration.y;
-    imu_angular_ = msg->angular_velocity.z;
-    imu_vx_ += msg->linear_acceleration.x * 0.02;      // 简化积分：仅用于打滑一致性粗判
+    imu_angular_ = msg->angular_velocity.z;   // 偏航角速度（gyro 直接测量，无积分漂移）
   }
 
   double Vel(const std::map<std::string, double> & m, const std::string & name) const
@@ -126,10 +126,16 @@ private:
       Vec2 t = WheelDiffModel::Twist(wl / 2.0, wr / 2.0, wheel_params_);
       odom.twist.twist.linear.x = t[0];
       odom.twist.twist.angular.z = t[1];
-      // 打滑检测：轮速体速 vs IMU 积分体速 相对偏差
-      if (std::fabs(t[0]) > 0.1 && imu_vx_ != 0) {
-        double ratio = std::fabs(t[0] - imu_vx_) / std::max(std::fabs(t[0]), 1e-3);
-        if (ratio > wheel_params_.max_slip_ratio) {cov_scale = 10.0 * ratio;}
+      // 打滑检测：轮式差速偏航角速度 vs IMU gyro 偏航角速度一致性。
+      // gyro 直接测量无积分漂移；wz_wheel = (wr - wl) * r / track_width。
+      // 行进中两者不一致超过阈值 → 轮子打滑，膨胀协方差。
+      double wz_wheel = t[1];
+      if (std::fabs(t[0]) > 0.1) {
+        double yaw_mismatch = std::fabs(wz_wheel - imu_angular_);
+        if (yaw_mismatch > slip_yaw_th_) {
+          double ratio = yaw_mismatch / std::max(std::fabs(wz_wheel), 1e-3);
+          cov_scale = 10.0 * ratio;
+        }
       }
     } else if (mode_ == 2) {
       Vec2 q(Vel(joint_pos_, "fl_hipy_joint"), Vel(joint_pos_, "fl_knee_joint"));
@@ -152,10 +158,12 @@ private:
 
   WheelParams wheel_params_;
   LegParams leg_params_;
+  // 预留：未来 /JOINTS_DATA 力矩经 joints_adapter 暴露后，用于基于力矩的接触/支撑检测。
+  // 当前 DetectMode() 仅用速度阈值，未使用该参数。
   double contact_effort_th_ = 5.0;
+  double slip_yaw_th_ = 0.5;     // 打滑偏航角速度不一致阈值（rad/s）
   double publish_rate_ = 50.0;
   int mode_ = 0;
-  double imu_vx_ = 0.0;
   double imu_angular_ = 0.0;
   geometry_msgs::msg::Vector3 imu_linear_;
   std::map<std::string, double> joint_pos_, joint_vel_, joint_effort_;

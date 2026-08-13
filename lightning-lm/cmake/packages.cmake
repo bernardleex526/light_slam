@@ -27,7 +27,8 @@ endif ()
 
 if (BUILD_WITH_MARCH_NATIVE)
     add_compile_options(-march=native)
-else ()
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386|i686|amd64")
+    # SSE 指令仅 x86 支持；ARM (RK3588 等) 不支持，必须跳过
     add_definitions(-msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2")
 endif ()

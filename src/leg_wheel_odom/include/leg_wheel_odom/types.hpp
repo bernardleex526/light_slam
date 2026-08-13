@@ -20,8 +20,8 @@ struct WheelParams
 struct LegParams
 {
   double hip_len = 0.06;     // 髋部到腿根
-  double thigh_len = 0.28;   // 大腿长
-  double calf_len = 0.28;    // 小腿长
+  double thigh_len = 0.25;   // 大腿长 L2（per M20 doc 21_关节.html §10.4）
+  double calf_len = 0.25;    // 小腿长 L4（per M20 doc 21_关节.html §10.4）
 };
 
 inline const std::array<std::string, 2> WHEEL_LEFT_JOINTS = {"fl_wheel_joint", "hl_wheel_joint"};

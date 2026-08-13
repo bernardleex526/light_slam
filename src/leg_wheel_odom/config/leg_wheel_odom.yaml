@@ -1,16 +1,22 @@
 leg_wheel_odom:
   ros__parameters:
-    # 轮半径标定（2026-08-05 实测，SIM 时间）：cmd_vel.x=0.5 → 轮 10 rad/s →
-    # 仿真中实际前移 ~0.91 m/s（= 碰撞体半径 0.09 × 轮速；WSL 下仿真 RTF≈0.83，
-    # 墙钟测速会低估 15%）。原 0.05 使 /odom_wheel 低估真实速度 45%。
-    wheel_radius: 0.091
+    # 轮半径：M20 真机脚轮直径 0.18m → 半径 0.09m
+    # （per M20 doc 21_关节.html §10.4）。
+    # 注意：0.091 是 SIM 标定值（含 WSL RTF 补偿），真机应使用 0.09。
+    wheel_radius: 0.09
     track_width: 0.137
     slip_ratio_threshold: 0.3
     contact_effort_threshold: 5.0
     publish_rate: 50.0
     joint_states_topic: /joint_states
-    imu_topic: /imu
+    # 真机 IMU 话题为 /IMU（大写，200Hz，sensor_msgs/Imu，已在 base_link 系下）。
+    # /imu 是 Gazebo 仿真话题，真机不发布。
+    imu_topic: /IMU
+    # 打滑检测：IMU 偏航角速度与轮式差速偏航角速度不一致阈值（rad/s）。
+    # 行进中（|vx|>0.1）且 |wz_wheel - wz_imu| 超过该阈值时判定打滑。
+    slip_yaw_threshold: 0.5
     leg_params:
       hip_len: 0.06
-      thigh_len: 0.28
-      calf_len: 0.28
+      # 大腿/小腿长 L2/L4 = 0.25m（per M20 doc 21_关节.html §10.4 连杆尺寸）。
+      thigh_len: 0.25
+      calf_len: 0.25

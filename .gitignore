@@ -3,6 +3,13 @@ build/
 install/
 log/
 
+# 数据集体积大（>1GB），不入库；按 README 从官方渠道下载后放回 data/
+data/
+
+# Python 字节码缓存
+__pycache__/
+*.pyc
+
 # lightning-lm 第三方库构建产物
 lightning-lm/thirdparty/*/build/
 lightning-lm/thirdparty/*/install/

@@ -1,0 +1,20 @@
+# leg_wheel_odom 仿真配置（Gazebo M20，Humble）
+# 与真机配置（leg_wheel_odom.yaml）分离：真机 IMU 话题为 /IMU（大写，200Hz），
+# 仿真 Gazebo 发布 /imu（小写，m20.urdf remap ~/out:=/imu）。
+# 轮半径 0.091 为 SIM 标定值（含 WSL RTF 补偿），真机为 0.09。
+leg_wheel_odom:
+  ros__parameters:
+    wheel_radius: 0.091
+    track_width: 0.137
+    slip_ratio_threshold: 0.3
+    contact_effort_threshold: 5.0
+    publish_rate: 50.0
+    joint_states_topic: /joint_states
+    # 仿真 IMU 话题（小写，200Hz，sensor_msgs/Imu，frame=imu_link）
+    imu_topic: /imu
+    # 打滑检测：IMU 偏航角速度与轮式差速偏航角速度不一致阈值（rad/s）
+    slip_yaw_threshold: 0.5
+    leg_params:
+      hip_len: 0.06
+      thigh_len: 0.25
+      calf_len: 0.25

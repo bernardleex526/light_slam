@@ -17,7 +17,7 @@ DUR=${3:-45}
 DATA=/mnt/d/data
 TS=$(date +%Y%m%d_%H%M%S)
 RUN=$DATA/${SCENE}_${VERSION}_${TS}
-mkdir -p $RUN/bag $RUN/logs
+mkdir -p $RUN/logs
 
 source /opt/ros/humble/setup.bash
 source /mnt/d/light/sim_ws/install/setup.bash
@@ -55,9 +55,11 @@ LAUNCH_PID=$!
 echo "launch pid: $LAUNCH_PID"
 sleep 30
 
-# 2. 轮速里程计（两版本共用）
+# 2. 轮速里程计（两版本共用；注意：必须用 sim 配置 leg_wheel_odom_sim.yaml——
+#    真机配置 imu_topic=/IMU（大写）在仿真中不存在，会导致 /odom_wheel 断供、
+#    退化走廊 SLAM 发散。2026-08-12 回归修复）
 nohup ros2 run leg_wheel_odom leg_wheel_odom_node \
-  --ros-args --params-file /mnt/d/light/src/leg_wheel_odom/config/leg_wheel_odom.yaml \
+  --ros-args --params-file /mnt/d/light/src/leg_wheel_odom/config/leg_wheel_odom_sim.yaml \
   > $RUN/logs/leg.log 2>&1 &
 LEG_PID=$!
 
@@ -88,8 +90,8 @@ nohup python3 /mnt/d/light/sim_ws/scripts/record_degeneracy.py $RUN/degeneracy.t
   > $RUN/logs/degen.log 2>&1 &
 DEGEN_PID=$!
 
-# 5. rosbag（全量）
-nohup ros2 bag record -o $RUN/bag -a > $RUN/logs/bag.log 2>&1 &
+# 5. rosbag（全量；$RUN 已含唯一时间戳，直接写 $RUN/bag，与头注释/结尾打印一致）
+nohup ros2 bag record -o $RUN/bag > $RUN/logs/bag.log 2>&1 &
 BAG_PID=$!
 sleep 5
 

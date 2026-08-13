@@ -1,0 +1,4 @@
+m20_joints_adapter:
+  ros__parameters:
+    joints_data_topic: /JOINTS_DATA
+    joint_states_topic: /joint_states

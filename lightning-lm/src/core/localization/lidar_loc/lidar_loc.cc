@@ -847,7 +847,9 @@ bool LidarLoc::Localize(SE3& pose, double& confidence, CloudPtr input, CloudPtr 
 
     auto tgt = ndt->getInputTarget();
     if (!tgt->empty()) {
-        pcl::io::savePCDFile("./data/tgt.pcd", *tgt);
+        // [W1 fix] disabled debug dump: pcl::io::savePCDFile throws pcl::IOException
+        // ("Number of points different than width * height!") and aborts offline loc
+        // pcl::io::savePCDFile("./data/tgt.pcd", *tgt);
     }
 
     if (loc_inited_ == false && confidence > options_.min_init_confidence_) {

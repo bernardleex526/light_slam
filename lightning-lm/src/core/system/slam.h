@@ -88,6 +88,8 @@ class SlamSystem {
     Options options_;
     std::atomic_bool running_ = false;
 
+    std::string yaml_path_;  // 配置文件路径（SaveMap 生成 occ_grid.yaml 时读取 resolution）
+
     rclcpp::Service<SaveMapService>::SharedPtr savemap_service_ = nullptr;
 
     std::string map_name_;  // 地图名
