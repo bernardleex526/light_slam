@@ -15,17 +15,20 @@ leg_wheel_odom + lightning-lm（轮速融合 LIO）的退化场景对比评测�
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /mnt/d/light/sim_ws/install/setup.bash
-source /mnt/d/light/install/setup.bash
+source /path/to/light/sim_ws/install/setup.bash
+source /path/to/light/install/setup.bash
 
 # 启动仿真（headless，世界名 corridor/plaza/office）
 ros2 launch m20_description gazebo.launch.py world:=corridor
 
 # 数据采集 + 评测（改进版/基线版）
-cd /mnt/d/light/sim_ws/scripts
+cd /path/to/light/sim_ws/scripts
 ./run_eval.sh corridor improved 80
 ./evo_eval.sh corridor improved
 ```
+
+> 脚本会自动根据 `sim_ws/scripts/run_eval.sh` 的位置推导仓库根目录，
+> 也支持用 `LIGHT_ROOT=/path/to/light` 和 `DATA_DIR=/path/to/data` 覆盖。
 
 ## 关键话题
 

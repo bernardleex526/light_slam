@@ -4,24 +4,29 @@
 #   scene:    corridor | plaza | office
 #   version:  baseline（无轮速融合）| improved（轮速融合）
 # 产出（唯一命名目录，避免旧进程/旧文件污染）:
-#   /mnt/d/data/<scene>_<version>_<ts>/gt.tum         Gazebo ModelStates 真值
-#   /mnt/d/data/<scene>_<version>_<ts>/lio.tum        LIO 轨迹（/lio_pose）
-#   /mnt/d/data/<scene>_<version>_<ts>/degeneracy.txt 退化状态（nullity+eigenvalues）
-#   /mnt/d/data/<scene>_<version>_<ts>/bag/           rosbag2
-#   /mnt/d/data/<scene>_<version>_<ts>/logs/          各进程日志
+#   ${DATA_DIR:-/mnt/d/data}/<scene>_<version>_<ts>/gt.tum         Gazebo ModelStates 真值
+#   ${DATA_DIR:-/mnt/d/data}/<scene>_<version>_<ts>/lio.tum        LIO 轨迹（/lio_pose）
+#   ${DATA_DIR:-/mnt/d/data}/<scene>_<version>_<ts>/degeneracy.txt 退化状态（nullity+eigenvalues）
+#   ${DATA_DIR:-/mnt/d/data}/<scene>_<version>_<ts>/bag/           rosbag2
+#   ${DATA_DIR:-/mnt/d/data}/<scene>_<version>_<ts>/logs/          各进程日志
 set -e
+
+# 根据脚本位置推导仓库根目录，避免硬编码 /mnt/d/light；可用 LIGHT_ROOT 覆盖
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIGHT_ROOT="${LIGHT_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+SIM_WS="$LIGHT_ROOT/sim_ws"
 
 SCENE=${1:-corridor}
 VERSION=${2:-improved}
 DUR=${3:-45}
-DATA=/mnt/d/data
+DATA="${DATA_DIR:-/mnt/d/data}"
 TS=$(date +%Y%m%d_%H%M%S)
 RUN=$DATA/${SCENE}_${VERSION}_${TS}
 mkdir -p $RUN/logs
 
 source /opt/ros/humble/setup.bash
-source /mnt/d/light/sim_ws/install/setup.bash
-source /mnt/d/light/install/setup.bash
+source $SIM_WS/install/setup.bash
+source $LIGHT_ROOT/install/setup.bash
 
 # 0. 进程卫生：清掉所有遗留仿真/采集进程（Critical 2：旧 lightning 进程会
 #    持续写同一输出文件，旧 /joint_states 发布者会污染评测与单元测试）
@@ -59,16 +64,16 @@ sleep 30
 #    真机配置 imu_topic=/IMU（大写）在仿真中不存在，会导致 /odom_wheel 断供、
 #    退化走廊 SLAM 发散。2026-08-12 回归修复）
 nohup ros2 run leg_wheel_odom leg_wheel_odom_node \
-  --ros-args --params-file /mnt/d/light/src/leg_wheel_odom/config/leg_wheel_odom_sim.yaml \
+  --ros-args --params-file $LIGHT_ROOT/src/leg_wheel_odom/config/leg_wheel_odom_sim.yaml \
   > $RUN/logs/leg.log 2>&1 &
 LEG_PID=$!
 
 # 3. SLAM：improved 用 /odom_wheel 融合，baseline 关掉 odom 输入
 if [ "$VERSION" = "improved" ]; then
-  CONFIG=/mnt/d/light/lightning-lm/config/default_robosense_sim.yaml
+  CONFIG=$LIGHT_ROOT/lightning-lm/config/default_robosense_sim.yaml
 else
   sed 's|odom_topic: "/odom_wheel"|odom_topic: ""|' \
-    /mnt/d/light/lightning-lm/config/default_robosense_sim.yaml > /tmp/no_odom.yaml
+    $LIGHT_ROOT/lightning-lm/config/default_robosense_sim.yaml > /tmp/no_odom.yaml
   CONFIG=/tmp/no_odom.yaml
 fi
 # use_sim_time: slam.cc 内 node_->set_parameter 已置 true（/lio_pose 时间戳
@@ -80,13 +85,13 @@ SLAM_PID=$!
 sleep 10
 
 # 4. 轨迹记录（真值 + LIO + 退化状态）
-nohup python3 /mnt/d/light/sim_ws/scripts/record_gt.py $RUN/gt.tum $DUR \
+nohup python3 $SIM_WS/scripts/record_gt.py $RUN/gt.tum $DUR \
   > $RUN/logs/gt.log 2>&1 &
 GT_PID=$!
-nohup python3 /mnt/d/light/sim_ws/scripts/record_lio.py $RUN/lio.tum $DUR \
+nohup python3 $SIM_WS/scripts/record_lio.py $RUN/lio.tum $DUR \
   > $RUN/logs/lio.log 2>&1 &
 LIO_PID=$!
-nohup python3 /mnt/d/light/sim_ws/scripts/record_degeneracy.py $RUN/degeneracy.txt $DUR \
+nohup python3 $SIM_WS/scripts/record_degeneracy.py $RUN/degeneracy.txt $DUR \
   > $RUN/logs/degen.log 2>&1 &
 DEGEN_PID=$!
 
@@ -96,7 +101,7 @@ BAG_PID=$!
 sleep 5
 
 # 6. 遥操作轨迹（同一 profile：两版本完全一致）
-nohup python3 /mnt/d/light/sim_ws/scripts/teleop_sim.py $SCENE > $RUN/logs/teleop.log 2>&1 &
+nohup python3 $SIM_WS/scripts/teleop_sim.py $SCENE > $RUN/logs/teleop.log 2>&1 &
 TELEOP_PID=$!
 sleep $((DUR + 10))
 

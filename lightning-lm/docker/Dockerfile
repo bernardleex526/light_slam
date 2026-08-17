@@ -46,6 +46,9 @@ RUN apt update && apt install -y \
     python3-setuptools \
     ros-${ROS_DISTRO}-pcl-conversions \
     ros-${ROS_DISTRO}-pcl-ros \
+    ros-${ROS_DISTRO}-rosbag2-cpp \
+    ros-${ROS_DISTRO}-rosbag2-storage \
+    ros-${ROS_DISTRO}-rosbag2-storage-default-plugins \
     ros-${ROS_DISTRO}-octomap \
     ros-${ROS_DISTRO}-pinocchio \
     zip \

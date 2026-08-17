@@ -43,7 +43,7 @@ include_directories(
         ${Pangolin_INCLUDE_DIRS}
         ${GLEW_INCLUDE_DIRS}
         ${tf2_INCLUDE_DIRS}
-        ${pcl_conversions_INCLUDR_DIRS}
+        ${pcl_conversions_INCLUDE_DIRS}
         ${rclcpp_INCLUDE_DIRS}
         ${rosbag2_cpp_INCLUDE_DIRS}
         ${nav_msgs_INCLUDE_DIRS}
