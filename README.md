@@ -116,8 +116,12 @@ ros2 run lightning run_loc_offline \
   --input_bag ../data/m20_office_bag --config ./config/default_m20.yaml
 ```
 
-官方 office bag 基准参考（2026-08-12）：建图 448 关键帧 / 49,252 点；定位 162/163 帧匹配成功，
-confidence 均值 2.84，位姿与建图轨迹偏差 0.1–0.2m。
+官方 office bag 当前基准（2026-08-26，`default_m20.yaml`，全新目录单次复测）：452 帧点云
+生成 162 个关键帧，全局 PCD 154,432 点；使用该地图首次定位 165/166 帧匹配成功，
+confidence 均值 2.983。建图与定位各自都修正了 53 次约 3 ms 的源点云
+`header.stamp` 小回退，均无超过 20 ms 的时钟故障丢帧。并行后端收尾可能使全局 PCD
+点数在重复运行间小幅变化；关键验收项是进程正常结束、关键帧数、地图文件完整性、时间门限
+统计和定位成功率，而不是要求 PCD 点数逐点完全一致。
 
 ## 8. 在线建图 SOP（真机）
 
@@ -126,8 +130,8 @@ confidence 均值 2.84，位姿与建图轨迹偏差 0.1–0.2m。
 ```bash
 source install/setup.bash
 ros2 launch lightning m20_slam.launch.py
-# 开发机无 drdds / 不接轮速时：
-# ros2 launch lightning m20_slam.launch.py enable_joints_adapter:=false enable_leg_odom:=false
+# 开发机无 drdds 时 joints_adapter 会自动跳过；如也不接轮速，可加：
+# ros2 launch lightning m20_slam.launch.py enable_leg_odom:=false
 ```
 
 launch 顺序：joints_adapter（可选）→ leg_wheel_odom（可选）→ run_slam_online → 就绪门禁。
@@ -213,7 +217,7 @@ baseline 1.71m——轮速融合将走廊漂移降到约 13%。
 | 参数 | 默认 | 说明 |
 |---|---|---|
 | `config` | 自动定位 `default_m20.yaml` | 优先源码 `config/`，其次安装前缀 `lib/lightning/config/`，可显式覆盖为绝对路径 |
-| `enable_joints_adapter` | `true` | 是否启动 `/JOINTS_DATA→/joint_states` 桥接（无 drdds 时置 false） |
+| `enable_joints_adapter` | `true` | 是否启动 `/JOINTS_DATA→/joint_states` 桥接（无 drdds 时自动跳过） |
 | `enable_leg_odom` | `true` | 是否启动轮腿里程计 |
 
 门禁话题随 enable 参数动态组装：基础为 `/IMU`、`/LIDAR/POINTS`、`/lio_pose`（定位版为 `/ODOM`），
@@ -247,7 +251,7 @@ x86/WSL corridor 基准：CPU 均值 ~7.2% / 峰值 ~14.6%，RSS 107.9–141MB�
 | 现象 | 排查 |
 |---|---|
 | 门禁 60s 超时并 Shutdown | 查看 launch 日志确认缺哪个话题；组件被禁时对应话题不应出现在门禁列表 |
-| launch 报 executable not found | 使用了手工同步的 install：`export PATH=$PWD/install/lightning/lib/lightning:$PATH`，或重新 colcon build |
+| launch 报 executable not found | 未 source install/setup.bash 或使用了手工同步的 install：请重新 `source install/setup.bash` 或重新 colcon build |
 | `YAML::BadFile` | config 路径不存在；检查 `config:=` 覆盖值或重新安装 config |
 | 定位不输出 `/ODOM` | 地图未加载 / 初始位姿错误 / NDT 匹配失败，先 `/initialpose` 重定位 |
 | 建图在走廊漂移 | 确认 `/odom_wheel` 有数据且 `odom_topic: /odom_wheel` 生效 |

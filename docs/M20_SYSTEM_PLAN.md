@@ -44,8 +44,11 @@
 
 ### ✅ W1 官方数据集离线验证（已完成 2026-08-12）
 - **数据**：DeepRoboticsLab office bag（45.3s，/LIDAR/POINTS 10Hz + /IMU 183Hz，无 odom/tf），持久化于 `data/m20_office_bag/`
-- **建图**：run_slam_offline + default_m20.yaml（修补版）EXIT=0，148 KF、149,252 点、**退化警告 0 次**、occ_grid.pgm/yaml 正常输出
-- **定位**：run_loc_offline 162/163 帧匹配成功、confidence 均值 2.84、位姿与建图轨迹一致（偏差 0.1-0.2m）
+- **建图**：2026-08-26 全新目录复测 run_slam_offline + default_m20.yaml EXIT=0，162 KF、154,432 点，
+  53 次约 3ms 小回退被单调时间门限修正、0 帧因时钟故障丢弃，occ_grid.pgm/yaml 正常输出
+- **定位**：2026-08-26 使用上述新地图首次运行 run_loc_offline，165/166 帧匹配成功、
+  confidence 均值 2.983；53 次约 3ms 小回退被修正、0 帧因时钟故障丢弃。定位会写回
+  dynamic map，因此基准必须从全新建图目录开始，不能在同一地图目录反复定位后比较统计
 - **遗留 A 结论**：timestamp 字段存在且布局正确（double@offset18），frame_id=lidar_link；无阻塞
 - **发现并修复**：① default_m20.yaml 缺 `plane_icp_weight`/`proj_kfs` 必需键（已补回）；② lidar_loc.cc:850 调试残留 savePCDFile 致 loc 崩溃（已注释）；③ slam.cc occ_grid yaml_path_ 编译错误（已修）；④ **构建链：工作区路径含中文"自研"，colcon 在此路径下不可用**（rosidl UTF-8 bug），需在 ASCII 路径（/tmp/light_src）构建后同步产物——环境级约束，待解决
 - 性能（离线全速，仅供参考）：CPU 均值 ~127%/峰值 ~170%，RSS 峰值 ~205MB

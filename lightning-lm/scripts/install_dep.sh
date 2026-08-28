@@ -33,7 +33,10 @@ sudo apt install -y \
     pcl-tools \
     libtbb-dev \
     ros-${DISTRO}-pcl-conversions \
-    ros-${DISTRO}-pcl-ros
+    ros-${DISTRO}-pcl-ros \
+    ros-${DISTRO}-rosbag2-cpp \
+    ros-${DISTRO}-rosbag2-storage \
+    ros-${DISTRO}-rosbag2-storage-default-plugins
 
 echo "依赖安装完成。"
 echo "注意：Pangolin 需手动编译安装（见 docker/Dockerfile.foxy 或 README）。"

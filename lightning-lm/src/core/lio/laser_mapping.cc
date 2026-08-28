@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include "common/options.h"
+#include "common/time_guard.h"
 #include "core/lightning_math.hpp"
 #include "laser_mapping.h"
 
@@ -466,9 +467,15 @@ void LaserMapping::ProcessPointCloud2(const sensor_msgs::msg::PointCloud2::Share
         [&, this]() {
             scan_count_++;
             double timestamp = ToSec(msg->header.stamp);
-            if (timestamp < last_timestamp_lidar_) {
-                LOG(ERROR) << "lidar loop back, dt: " << timestamp - last_timestamp_lidar_;
+            const auto monotonic = NormalizeLidarTimestamp(timestamp, last_timestamp_lidar_);
+            if (!monotonic.accepted) {
+                LOG(ERROR) << "lidar clock reset/invalid, dt: " << timestamp - last_timestamp_lidar_;
                 return;
+            }
+            if (monotonic.clamped) {
+                LOG(WARNING) << "small lidar timestamp rollback " << monotonic.rollback
+                             << " s, clamped to keep the M20 scan sequence monotonic";
+                timestamp = monotonic.timestamp;
             }
 
             LOG(INFO) << "get cloud at " << std::setprecision(14) << timestamp
@@ -515,9 +522,15 @@ void LaserMapping::ProcessPointCloud2(CloudPtr cloud) {
             scan_count_++;
 
             double timestamp = math::ToSec(cloud->header.stamp);
-            if (timestamp < last_timestamp_lidar_) {
-                LOG(ERROR) << "lidar loop back, clear buffer";
-                lidar_buffer_.clear();
+            const auto monotonic = NormalizeLidarTimestamp(timestamp, last_timestamp_lidar_);
+            if (!monotonic.accepted) {
+                LOG(ERROR) << "lidar clock reset/invalid, dt: " << timestamp - last_timestamp_lidar_;
+                return;
+            }
+            if (monotonic.clamped) {
+                LOG(WARNING) << "small lidar timestamp rollback " << monotonic.rollback
+                             << " s, clamped to keep the M20 localization sequence monotonic";
+                timestamp = monotonic.timestamp;
             }
 
             lidar_buffer_.push_back(cloud);

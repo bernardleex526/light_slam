@@ -9,13 +9,13 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
+    LogInfo,
     OpaqueFunction,
     RegisterEventHandler,
     Shutdown,
 )
-from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
-from launch.substitutions import FindExecutable, LaunchConfiguration
+from launch.substitutions import LaunchConfiguration
 
 # stdbuf 逐行刷新日志（WSL 可用；若环境无 stdbuf 可去掉此前缀）
 _STDBUF_PREFIX = "stdbuf -oL -eL"
@@ -63,6 +63,22 @@ def _default_config_path():
     return candidates[-1]
 
 
+def _package_executable_path(package, executable):
+    """通过 ament index 返回已安装可执行文件的绝对路径，不依赖 PATH。
+
+    注意：这里不能用 launch_ros.actions.Node，因为 run_slam_online/run_loc_online
+    使用 gflags 解析参数，Node 会自动追加 --ros-args，会被 gflags 当作未知参数。
+    """
+    try:
+        from ament_index_python.packages import get_package_prefix
+
+        prefix = get_package_prefix(package)
+    except Exception:
+        return None
+    path = os.path.join(prefix, "lib", package, executable)
+    return path if os.path.isfile(path) else None
+
+
 def _on_ready_check_exit(event, context):
     """就绪检查退出 0 表示全部话题就绪，launch 继续运行；
     退出非 0 表示超时/失败，此时才关闭整个 launch"""
@@ -80,9 +96,9 @@ def _ready_check_action(context):
     enable_leg = context.launch_configurations.get("enable_leg_odom", "true").lower() == "true"
 
     topics = list(_CORE_READY_TOPICS)
-    if enable_joints:
+    if enable_joints and _package_executable_path("m20_joints_adapter", "joints_adapter_node"):
         topics.append("/joint_states")
-    if enable_leg:
+    if enable_leg and _package_executable_path("leg_wheel_odom", "leg_wheel_odom_node"):
         topics.append("/odom_wheel")
 
     ready_check = ExecuteProcess(
@@ -101,10 +117,52 @@ def _ready_check_action(context):
     ]
 
 
+def _joints_adapter_action(context):
+    """可选：JOINTS_DATA -> /joint_states 桥接。仅真机有 drdds 消息包时可用。"""
+    enable = (
+        context.launch_configurations.get("enable_joints_adapter", "true").lower() == "true"
+    )
+    if not enable:
+        return []
+    exe = _package_executable_path("m20_joints_adapter", "joints_adapter_node")
+    if exe is None:
+        return [
+            LogInfo(
+                msg="m20_joints_adapter 未构建（缺少 drdds），跳过 joints_adapter；"
+                    "真机请安装 drdds 后重新构建"
+            )
+        ]
+    return [
+        ExecuteProcess(
+            cmd=[exe],
+            output="log",
+            prefix=_STDBUF_PREFIX,
+        )
+    ]
+
+
+def _leg_odom_action(context):
+    """可选：轮速里程计，50Hz 发布 /odom_wheel。"""
+    enable = (
+        context.launch_configurations.get("enable_leg_odom", "true").lower() == "true"
+    )
+    if not enable:
+        return []
+    exe = _package_executable_path("leg_wheel_odom", "leg_wheel_odom_node")
+    if exe is None:
+        return [LogInfo(msg="leg_wheel_odom 未构建，跳过轮速里程计")]
+    return [
+        ExecuteProcess(
+            cmd=[exe],
+            output="log",
+            prefix=_STDBUF_PREFIX,
+        )
+    ]
+
+
 def generate_launch_description():
     config = LaunchConfiguration("config")
-    enable_joints_adapter = LaunchConfiguration("enable_joints_adapter")
-    enable_leg_odom = LaunchConfiguration("enable_leg_odom")
+    slam_exe = _package_executable_path("lightning", "run_slam_online")
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -115,7 +173,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "enable_joints_adapter",
             default_value="true",
-            description="是否启动 m20_joints_adapter（开发机无 drdds 消息包时置 false）",
+            description="是否启动 m20_joints_adapter（开发机无 drdds 消息包时自动跳过）",
         ),
         DeclareLaunchArgument(
             "enable_leg_odom",
@@ -124,22 +182,12 @@ def generate_launch_description():
         ),
 
         # 1.（可选）JOINTS_DATA -> /joint_states 桥接，仅真机有 drdds 消息包时可用
-        ExecuteProcess(
-            cmd=[FindExecutable(name="joints_adapter_node")],
-            output="log",
-            prefix=_STDBUF_PREFIX,
-            condition=IfCondition(enable_joints_adapter),
-        ),
+        OpaqueFunction(function=_joints_adapter_action),
         # 2.（可选）轮速里程计，50Hz 发布 /odom_wheel
-        ExecuteProcess(
-            cmd=[FindExecutable(name="leg_wheel_odom_node")],
-            output="log",
-            prefix=_STDBUF_PREFIX,
-            condition=IfCondition(enable_leg_odom),
-        ),
+        OpaqueFunction(function=_leg_odom_action),
         # 3. 在线建图主程序
         ExecuteProcess(
-            cmd=[FindExecutable(name="run_slam_online"), "--config", config],
+            cmd=[slam_exe, "--config", config],
             output="log",
             prefix=_STDBUF_PREFIX,
         ),

@@ -64,6 +64,9 @@ if(BUILD_TESTING)
   ament_add_gtest(test_wheelspeed_obs tests/test_wheelspeed_obs.cpp)
   target_include_directories(test_wheelspeed_obs PRIVATE src)
   target_link_libraries(test_wheelspeed_obs lightning.libs)
+
+  ament_add_gtest(test_time_guard tests/test_time_guard.cpp)
+  target_include_directories(test_time_guard PRIVATE src)
 endif()
 
 # -------------------------------------------------------------
