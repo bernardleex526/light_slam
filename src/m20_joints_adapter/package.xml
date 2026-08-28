@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>m20_joints_adapter</name>
+  <version>0.1.0</version>
+  <description>Bridges the M20 robot's /JOINTS_DATA (drdds/msg/JointsData) to /joint_states (sensor_msgs/msg/JointState) so the leg_wheel_odom node can run on the real robot.</description>
+  <maintainer email="admin@example.com">admin</maintainer>
+  <license>Proprietary</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <!-- drdds is the M20 robot's custom message package (provides drdds/msg/JointsData).
+       It is NOT part of this workspace. On the real robot it is available via
+       `source /opt/robot/scripts/setup_ros2.sh`; on dev machines it must be built
+       from the sdk_deploy repo. CMakeLists.txt uses find_package(drdds QUIET) so
+       this package is gracefully skipped when drdds is absent (sim/dev machines). -->
+  <!-- drdds is a private package and has no rosdep rule: rosdep install commands
+       must skip the drdds key explicitly (see README.md / M20_DEPLOYMENT.md). -->
+  <depend>drdds</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

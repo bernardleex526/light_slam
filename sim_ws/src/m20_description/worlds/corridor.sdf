@@ -1,0 +1,66 @@
+<?xml version="1.0" ?>
+<!-- 走廊 30m x 2m 直墙，两端开口（退化场景：直行段） -->
+<sdf version="1.6">
+  <world name="corridor">
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <physics type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <ode>
+        <solver>
+          <type>quick</type>
+          <iters>100</iters>
+          <sor>1.3</sor>
+        </solver>
+        <constraints>
+          <cfm>0.0</cfm>
+          <erp>0.2</erp>
+          <contact_max_correcting_vel>0.5</contact_max_correcting_vel>
+          <contact_surface_layer>0.001</contact_surface_layer>
+        </constraints>
+      </ode>
+    </physics>
+
+
+    <model name="wall_left">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>30 0.2 2</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>30 0.2 2</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient></material>
+        </visual>
+      </link>
+      <pose>0 1.1 1 0 0 0</pose>
+    </model>
+
+    <model name="wall_right">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>30 0.2 2</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>30 0.2 2</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient></material>
+        </visual>
+      </link>
+      <pose>0 -1.1 1 0 0 0</pose>
+    </model>
+      <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <remapping>~/link_states:=/gazebo/link_states</remapping>
+        <remapping>~/model_states:=/gazebo/model_states</remapping>
+      </ros>
+    </plugin>
+  </world>
+</sdf>
