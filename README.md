@@ -116,8 +116,12 @@ ros2 run lightning run_loc_offline \
   --input_bag ../data/m20_office_bag --config ./config/default_m20.yaml
 ```
 
-官方 office bag 基准参考（2026-08-12）：建图 448 关键帧 / 49,252 点；定位 162/163 帧匹配成功，
-confidence 均值 2.84，位姿与建图轨迹偏差 0.1–0.2m。
+官方 office bag 当前基准（2026-08-26，`default_m20.yaml`，全新目录单次复测）：452 帧点云
+生成 162 个关键帧，全局 PCD 154,432 点；使用该地图首次定位 165/166 帧匹配成功，
+confidence 均值 2.983。建图与定位各自都修正了 53 次约 3 ms 的源点云
+`header.stamp` 小回退，均无超过 20 ms 的时钟故障丢帧。并行后端收尾可能使全局 PCD
+点数在重复运行间小幅变化；关键验收项是进程正常结束、关键帧数、地图文件完整性、时间门限
+统计和定位成功率，而不是要求 PCD 点数逐点完全一致。
 
 ## 8. 在线建图 SOP（真机）
 
