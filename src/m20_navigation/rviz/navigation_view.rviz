@@ -1,0 +1,93 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Grid
+      Plane: XY
+      Reference Frame: <Fixed Frame>
+    - Alpha: 1
+      Class: rviz_default_plugins/PointCloud2
+      Color: 190; 190; 190
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Name: Prior Map
+      Position Transformer: XYZ
+      Queue Size: 2
+      Selectable: true
+      Size (Pixels): 2
+      Size (m): 0.03
+      Style: Points
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /FULL_CLOUD_MAP
+      Use Fixed Frame: true
+    - Alpha: 0.7
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: true
+      Enabled: true
+      Name: Local Costmap
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /local_map
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Line Style: Lines
+      Line Width: 0.03
+      Name: Global Path
+      Pose Style: None
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /path_Astar
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: camera_init
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic: /initialpose
+    - Class: rviz_default_plugins/SetGoal
+      Topic: /goal_pose
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 20
+      Focal Point: 0; 0; 0
+      Name: Current View
+      Pitch: 0.55
+      Target Frame: camera_init
+      Yaw: 0.8
+Window Geometry:
+  Height: 900
+  Width: 1440
