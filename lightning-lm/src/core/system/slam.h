@@ -107,6 +107,7 @@ class SlamSystem {
     std::string cloud_topic_;
     std::string livox_topic_;
     std::string odom_topic_;
+    std::string lio_pose_topic_;  // LIO 位姿输出话题（system.lio_pose_topic，默认 /lio_pose）
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_ = nullptr;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_ = nullptr;

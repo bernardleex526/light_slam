@@ -25,11 +25,13 @@ Localization and Mapping），本仓库在其上完成了 M20 真机适配、轮
 | `lightning-lm/` | 核心 SLAM 包：`src/core/lio` 前端、`loop_closing` 回环、`g2p5` 栅格、`maps` 分块地图、`miao` 图优化、`system` 系统接口 |
 | `lightning-lm/launch/` | `m20_slam.launch.py`、`m20_loc.launch.py`、`topic_ready_check.py` 就绪门禁 |
 | `lightning-lm/config/default_m20.yaml` | M20 真机默认配置（96 线 RoboSense、关 UI、QoS 等） |
+| `lightning-lm/config/native/` | M20 原厂参数快照（只读参考：global/local planner、passable_area、lidar/body 标定） |
 | `lightning-lm/docker/Dockerfile.foxy` | Foxy 镜像定义（可选资产） |
 | `src/m20_joints_adapter/` | `/JOINTS_DATA`(drdds) → `/joint_states` 桥接（真机必需） |
 | `src/leg_wheel_odom/` | 轮腿里程计节点（`/odom_wheel`，50Hz） |
+| `scripts/` | `start_slam.sh` / `start_loc.sh` 一键启动（AOS 部署，预检 + Ctrl+C 自动存图/清理） |
 | `sim_ws/` | Gazebo 仿真验证套件（M20 模型、ring 补全、三场景、采集/评测脚本） |
-| `docs/` | `M20_DEPLOYMENT.md`（真机部署）、`M20_SYSTEM_PLAN.md`（方案决策记录） |
+| `docs/` | `M20_ALIGNMENT.md`（与本仓库对齐参考/原厂基线的核对）、`M20_DEPLOYMENT.md`（真机部署）、`M20_SYSTEM_PLAN.md`（方案决策记录） |
 | `data/` | 数据/地图目录（**不入库**，见 §15） |
 
 ## 3. 传感器与话题约定（M20）
@@ -41,14 +43,17 @@ Localization and Mapping），本仓库在其上完成了 M20 真机适配、轮
 | `/JOINTS_DATA` | 输入 | 真机 drdds 自定义消息，由 adapter 桥接 |
 | `/joint_states` | 内部 | adapter 输出，16 关节 |
 | `/odom_wheel` | 输入 | leg_wheel_odom 输出，50Hz |
-| `/lio_pose` | 输出 | 建图时 LIO 位姿（geometry_msgs/PoseStamped） |
-| `/ODOM` | 输出 | 定位位姿（map 系 nav_msgs/Odometry，10Hz） |
+| `/lio_pose` | 输出 | 建图时 LIO 位姿（geometry_msgs/PoseStamped；`system.lio_pose_topic`，可隔离为 `/m20_slam/pose`） |
+| `/ODOM` | 输出 | 定位位姿（map 系 nav_msgs/Odometry，10Hz；`system.odom_topic`，可隔离为 `/m20_slam/odom`） |
 | `/initialpose` | 输入 | 重定位接口（PoseWithCovarianceStamped） |
 | `/lightning/save_map` | 服务 | 保存地图 |
 
 ## 4. 环境与依赖
 
-真机：Ubuntu 20.04 + ROS2 Foxy + RK3588（GOS 10.21.31.104 / NOS 10.21.31.106）。
+真机：Ubuntu 20.04 + ROS2 Foxy + RK3588（三板：AOS `192.168.101.36` / eth0
+`10.21.33.103`，可 SSH；NOS `10.21.31.106`、GOS `10.21.31.104` 为黑盒，无 SSH，
+按 2026-09-01 M20 Pro 原厂基线探查实录——详见 `docs/M20_ALIGNMENT.md` §1-2）。
+第三方节点部署在 **AOS**（`user@192.168.101.36`），订阅原厂域 0 话题、发布独立话题。
 开发机：Ubuntu 20.04/22.04 + ROS2 Foxy/Humble。
 
 ```bash
@@ -123,6 +128,15 @@ confidence 均值 2.84，位姿与建图轨迹偏差 0.1–0.2m。
 
 ### 8.1 一键启动（推荐）
 
+AOS 板上用 `scripts/start_slam.sh`（环境加载 + 预检 + Ctrl+C 自动保存地图并清理进程）：
+
+```bash
+./scripts/start_slam.sh --map-id site_a
+# 等价参数：--config <path> --no-joints --no-leg-odom --domain 0 --skip-preflight
+```
+
+或直接 launch：
+
 ```bash
 source install/setup.bash
 ros2 launch lightning m20_slam.launch.py
@@ -149,6 +163,15 @@ ros2 service call /lightning/save_map lightning/srv/SaveMap "{map_id: mymap}"
 ```
 
 ## 9. 在线定位 SOP（真机）
+
+AOS 板上用 `scripts/start_loc.sh`：
+
+```bash
+./scripts/start_loc.sh
+# 等价参数：--config <path> --no-joints --no-leg-odom --domain 0 --skip-preflight
+```
+
+或直接 launch：
 
 ```bash
 source install/setup.bash
@@ -181,10 +204,21 @@ ros2 topic echo /lio_pose       # 建图时
 
 ## 10. 官方导航对接 SOP（occ_grid → drmap → planner）
 
+> 本仓库采用"第三方只做建图/定位，导航用原厂 NOS planner"路线（对齐参考 §11
+> 推荐路径）：**不写 `/NAV_CMD`、不接管原厂运动链**。完整核对矩阵、安全边界与
+> 真机验收指标见 `docs/M20_ALIGNMENT.md`。
+
 1. 建图保存后，`occ_grid.pgm + occ_grid.yaml` 已与 `map_path` 对齐 M20 drmap 激活目录
    （`default_m20.yaml` 中 `system.map_path: /var/opt/robot/data/maps/active/`）。
 2. 用 drmap `unpack/apply` 或手动放置地图到 `/var/opt/robot/data/maps/`。
-3. 启动本仓库定位链路（§9），官方 planner 订阅 `/ODOM` 即可端到端跑通导航。
+3. 在 AOS 启动本仓库定位链路（§9 或 `./scripts/start_loc.sh`），官方 planner 订阅
+   `/ODOM` 即可端到端跑通导航：
+   - `/ODOM` 由 `system.odom_topic` 控制（默认 `/ODOM`；如需与原厂定位链并行
+     隔离验收，改为 `/m20_slam/odom`）；
+   - `map→base_link` TF 由 `system.pub_tf` 控制（默认 true；关闭 TF 不影响
+     `/ODOM` 发布，避免与原厂 TF 冲突）。
+4. 原厂 planner 输入契约参考 `lightning-lm/config/native/native_global_topics.yaml`
+   参数快照。
 
 ## 11. 仿真验证 SOP（开发机）
 
@@ -268,6 +302,10 @@ x86/WSL corridor 基准：CPU 均值 ~7.2% / 峰值 ~14.6%，RSS 107.9–141MB�
 | B | 腿式里程计为单腿 2-DOF 简化模型（协方差放大 100 倍降权） | 待真机数据按需改进 |
 | C | `track_width=0.137` 取手册值 | 建议真机实测校准 |
 | D | IMU 外参取 identity（驱动已变换到 base_link） | 精度不足时微调 `extrinsic_T/R` |
+| E | `/ODOM` 与原厂 NOS localization 双发布冲突 | 部署前 `ros2 topic info /ODOM` 确认发布者；冲突时 `system.odom_topic=/m20_slam/odom`（隔离模式） |
+| F | 真机传感器链路（`/LIDAR/POINTS` 未发布、IMU 静默） | 参考 `docs/M20_ALIGNMENT.md` §6，属机器人侧状态，需先恢复 |
 
-详细部署步骤与 P0–P2 修复清单见 [docs/M20_DEPLOYMENT.md](docs/M20_DEPLOYMENT.md)，
+详细部署步骤与 P0–P2 修复清单见 [docs/M20_DEPLOYMENT.md](docs/M20_DEPLOYMENT.md)；
+与本仓库对齐参考（M20 Pro 原厂基线交接文档）的逐项核对见
+[docs/M20_ALIGNMENT.md](docs/M20_ALIGNMENT.md)。
 方案决策记录见 [docs/M20_SYSTEM_PLAN.md](docs/M20_SYSTEM_PLAN.md)。

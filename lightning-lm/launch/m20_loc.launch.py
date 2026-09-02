@@ -20,8 +20,28 @@ from launch.substitutions import FindExecutable, LaunchConfiguration
 # stdbuf 逐行刷新日志（WSL 可用；若环境无 stdbuf 可去掉此前缀）
 _STDBUF_PREFIX = "stdbuf -oL -eL"
 
-# 就绪门禁必须等待的核心话题（与可选组件无关）；定位链路以 /ODOM 作为就绪标志
-_CORE_READY_TOPICS = ["/IMU", "/LIDAR/POINTS", "/ODOM"]
+# 就绪门禁必须等待的核心话题（与可选组件无关）；定位链路以 /ODOM 作为就绪标志。
+# 话题名从 config yaml 读取（common.imu_topic / common.lidar_topic /
+# system.odom_topic），支持隔离话题（如 /m20_slam/odom）；读取失败时回退默认名。
+_DEFAULT_CORE_READY_TOPICS = ["/IMU", "/LIDAR/POINTS", "/ODOM"]
+
+
+def _ready_topics_from_config(config_path):
+    """从 config yaml 读取门禁需要的传感器/定位输出话题名。"""
+    topics = list(_DEFAULT_CORE_READY_TOPICS)
+    try:
+        import yaml as _yaml
+
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = _yaml.safe_load(f) or {}
+        sys_cfg = cfg.get("system", {}) or {}
+        common_cfg = cfg.get("common", {}) or {}
+        topics[0] = str(common_cfg.get("imu_topic", topics[0]))
+        topics[1] = str(common_cfg.get("lidar_topic", topics[1]))
+        topics[2] = str(sys_cfg.get("odom_topic", topics[2]))
+    except Exception:
+        pass
+    return topics
 
 
 def _ready_check_script():
@@ -79,7 +99,8 @@ def _ready_check_action(context):
     )
     enable_leg = context.launch_configurations.get("enable_leg_odom", "true").lower() == "true"
 
-    topics = list(_CORE_READY_TOPICS)
+    config_path = context.launch_configurations.get("config", _default_config_path())
+    topics = _ready_topics_from_config(config_path)
     if enable_joints:
         topics.append("/joint_states")
     if enable_leg:

@@ -37,11 +37,17 @@
 
 ## 真机部署步骤
 
-### 1. 环境准备（GOS 10.21.31.104 或 NOS 10.21.31.106）
+### 1. 环境准备（AOS 192.168.101.36，可 SSH；NOS/GOS 为黑盒无 SSH）
+
+> 按 2026-09-01 M20 Pro 原厂基线探查实录（见 `M20_ALIGNMENT.md`）：三板中仅
+> AOS（`user@192.168.101.36`，密码为单引号字符 `'`，注意 shell 转义）可 SSH；
+> NOS `10.21.31.106`、GOS `10.21.31.104` 无 SSH。第三方节点统一部署在 AOS 板上，
+> 以 ROS2 Foxy 节点运行、订阅原厂域 0 话题、发布独立话题，不改动原厂服务。
 
 ```bash
-# ROS2 Foxy 环境
-source /opt/robot/scripts/setup_ros2.sh
+# ROS2 Foxy 环境（AOS 板上）
+ssh user@192.168.101.36
+source /opt/robot/scripts/setup_ros2.sh   # 自动写入 eth0 IP 到 fastdds.xml 白名单并 source Foxy
 export ROS_DOMAIN_ID=0
 
 # 安装依赖（自动识别 foxy）

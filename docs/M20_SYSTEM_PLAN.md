@@ -2,7 +2,9 @@
 
 > 工作区：`D:\slam\自研\light`
 > 基础：lightning-lm（已完成 M20 P0–P2 环境适配，见 `docs/M20_DEPLOYMENT.md`）+ `src/leg_wheel_odom` + `src/m20_joints_adapter` + `sim_ws`（Gazebo 仿真验证套件）
-> 目标硬件：云深处 M20 Pro 机器狗（ROS2 Foxy / RK3588 ARM / GOS 10.21.31.104 或 NOS 10.21.31.106）
+> 目标硬件：云深处 M20 Pro 机器狗（ROS2 Foxy / RK3588 ARM；三板中仅 AOS
+> `192.168.101.36` 可 SSH，NOS `10.21.31.106`、GOS `10.21.31.104` 为黑盒无 SSH，
+> 按 2026-09-01 原厂基线实录，见 `docs/M20_ALIGNMENT.md`）
 
 ## 一、现状（已确认，不再重复决策）
 

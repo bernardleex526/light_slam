@@ -67,6 +67,7 @@ class LocSystem {
     std::string imu_topic_;
     std::string cloud_topic_;
     std::string livox_topic_;
+    std::string odom_topic_;  // 输出里程计话题（system.odom_topic，默认 /ODOM；可隔离为 /m20_slam/odom）
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_ = nullptr;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_ = nullptr;

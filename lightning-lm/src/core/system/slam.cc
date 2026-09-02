@@ -96,6 +96,7 @@ bool SlamSystem::Init(const std::string& yaml_path) {
         cloud_topic_ = yaml["common"]["lidar_topic"].as<std::string>();
         livox_topic_ = yaml["common"]["livox_lidar_topic"].as<std::string>();
         odom_topic_ = yaml["common"]["odom_topic"].as<std::string>("/odom_wheel");
+        lio_pose_topic_ = yaml["system"]["lio_pose_topic"].as<std::string>("/lio_pose");
 
         rclcpp::QoS qos(10);
         // 雷达/IMU 等传感器数据建议 best_effort（驱动端常为 best_effort），
@@ -156,7 +157,7 @@ bool SlamSystem::Init(const std::string& yaml_path) {
         });
 
         lio_pose_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
-            "/lio_pose", 10);
+            lio_pose_topic_, 10);
         lio_pose_timer_ = node_->create_wall_timer(std::chrono::milliseconds(100), [this]() {
             if (!lio_) return;
             NavState st = lio_->GetState();

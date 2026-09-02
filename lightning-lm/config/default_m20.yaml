@@ -86,6 +86,12 @@ system:
   lidar_odom_skip_num: 0
   map_path: /var/opt/robot/data/maps/active/   # 对齐 M20 drmap 激活地图路径
   pub_tf: true
+  # 定位输出话题（对接原厂导航：原厂 planner 订阅 /ODOM）。
+  # 需要与原厂定位链并行隔离验收时改为 /m20_slam/odom（不接管 /ODOM）。
+  odom_topic: /ODOM
+  # 建图 LIO 位姿输出话题（/lio_pose）。
+  # 隔离模式可改为 /m20_slam/pose。
+  lio_pose_topic: /lio_pose
 
   use_sim_time: false         # 真机用墙钟时间
   sensor_best_effort: true    # 雷达驱动常为 best_effort QoS
