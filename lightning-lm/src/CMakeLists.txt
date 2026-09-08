@@ -40,6 +40,7 @@ add_library(${PROJECT_NAME}.libs SHARED
         ui/ui_cloud.cc
         ui/ui_trajectory.cc
 
+        core/system/navigation_output.cc
         core/system/slam.cc
         core/system/loc_system.cc
 

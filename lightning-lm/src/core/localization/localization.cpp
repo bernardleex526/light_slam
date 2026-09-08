@@ -185,6 +185,7 @@ void Localization::LidarOdomProcCloud(CloudPtr cloud) {
     }
 
     auto lo_state = lio_->GetState();
+    if (odom_callback_) odom_callback_(lo_state, lio_->GetCovariance());
 
     lidar_loc_->ProcessLO(lo_state);
     pgo_->ProcessLidarOdom(lo_state);

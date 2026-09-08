@@ -81,6 +81,9 @@ class Localization {
     using PointcloudWorldCallback = std::function<void(const sensor_msgs::msg::PointCloud2& pointcloud)>;
 
     void SetTFCallback(TFCallback&& callback);
+    using OdomCallback = std::function<void(const NavState &, const Eigen::Matrix<double,12,12> &)>;
+    void SetOdomCallback(OdomCallback callback) { odom_callback_ = std::move(callback); }
+
 
     // void SetPathCallback(std::function<void(const nav_msgs::msg::Path& path)>&& callback);
     // void SetPointcloudWorldCallback(std::function<void(const sensor_msgs::msg::PointCloud2& pointcloud)>&& callback);
@@ -117,6 +120,7 @@ class Localization {
     LocalizationResult loc_result_;
 
     /// 框架相关
+    OdomCallback odom_callback_;
     TFCallback tf_callback_;
     LocStateCallback loc_state_callback_;
     PointcloudBodyCallback pointcloud_body_callback_;

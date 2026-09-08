@@ -9,6 +9,7 @@
 #include "common/nav_state.h"
 #include "common/point_def.h"
 #include "common/std_types.h"
+#include <pcl/common/transforms.h>
 
 namespace lightning {
 
@@ -19,8 +20,10 @@ class Keyframe {
     using Ptr = std::shared_ptr<Keyframe>;
 
     Keyframe() {}
-    Keyframe(unsigned long id, CloudPtr cloud, NavState state)
-        : id_(id), cloud_(cloud), state_(state), pose_lio_(state.GetPose()) {
+    Keyframe(unsigned long id, CloudPtr cloud, NavState state, const SE3 &imu_from_lidar = SE3())
+        : id_(id), cloud_(new PointCloudType), state_(state), pose_lio_(state.GetPose()) {
+        // All keyframe consumers (loop closing, grid, export) use IMU poses.
+        pcl::transformPointCloud(*cloud, *cloud_, imu_from_lidar.matrix());
         timestamp_ = state_.timestamp_;
         pose_opt_ = pose_lio_;
     }

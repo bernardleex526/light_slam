@@ -1,14 +1,17 @@
 #pragma once
+#include <deque>
+#include <vector>
 #include "common/eigen_types.h"
+#include "common/odom.h"
 #include "core/lio/eskf.hpp"
-
 namespace lightning {
+// Planar increment in the previous IMU frame. State errors: world position,
+// right-multiplicative attitude. Weight is inverse observation variance.
+void BuildWheelObs(const SE3 &pred_inc, const SE3 &meas_inc, double weight, ESKF::CustomObservationModel &obs,
+                   const SO3 &previous_rotation = SO3());
+// Integrate body-frame twist only over fully bracketed, fresh measurements.
+std::vector<OdomPtr> SelectWheelSamples(std::deque<OdomPtr> &buffer, double start, double end);
 
-/// 轮速/腿式里程计的帧间位姿增量观测模型
-/// 约束 x, y, yaw 三个自由度；z/roll/pitch 行恒为 0（交给退化感知处理）
-/// @param pred_inc 预测增量（当前状态 ⊖ 上帧状态）
-/// @param meas_inc 轮速里程计测得增量（T_odom(t0)^{-1} * T_odom(t1)）
-/// @param weight   观测权重（= 1/R 等效缩放）
-void BuildWheelObs(const SE3 &pred_inc, const SE3 &meas_inc, double weight, ESKF::CustomObservationModel &obs);
-
+bool IntegrateWheelTwist(const std::vector<OdomPtr> &samples, double start, double end, SE3 &increment,
+                         double max_gap = 0.15);
 }  // namespace lightning

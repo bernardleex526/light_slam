@@ -134,7 +134,23 @@ void ESKF::Update(ESKF::ObsType obs, const double& R) {
             lidar_obs_func_(x_, custom_obs_model_);
         }
         if (obs == ObsType::WHEEL_SPEED || obs == ObsType::WHEEL_SPEED_AND_LIDAR) {
-            wheelspeed_obs_func_(x_, custom_obs_model_);
+            // Each sensor owns its validity. A missing auxiliary observation must
+            // not discard an already valid lidar update.
+            CustomObservationModel wheel;
+            wheel.HTH_.setZero();
+            wheel.HTr_.setZero();
+            wheel.valid_ = false;
+            if (wheelspeed_obs_func_) wheelspeed_obs_func_(x_, wheel);
+            if (obs == ObsType::WHEEL_SPEED) {
+                custom_obs_model_ = wheel;
+            } else if (wheel.valid_) {
+                if (!custom_obs_model_.valid_) {
+                    custom_obs_model_ = wheel;
+                } else {
+                    custom_obs_model_.HTH_ += wheel.HTH_;
+                    custom_obs_model_.HTr_ += wheel.HTr_;
+                }
+            }
         }
         if (obs == ObsType::ACC_AS_GRAVITY) {
             acc_as_gravity_obs_func_(x_, custom_obs_model_);

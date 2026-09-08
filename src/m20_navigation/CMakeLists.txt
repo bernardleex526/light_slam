@@ -16,6 +16,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(nav2_map_server REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -104,7 +105,7 @@ set(M20_NAV_DEPENDENCIES
 
 add_library(m20_navigation_core SHARED ${M20_NAV_SOURCES})
 ament_target_dependencies(m20_navigation_core ${M20_NAV_DEPENDENCIES})
-target_link_libraries(m20_navigation_core PUBLIC
+target_link_libraries(m20_navigation_core
   Eigen3::Eigen
   ${PCL_LIBRARIES}
 )
@@ -118,7 +119,7 @@ target_include_directories(m20_navigation_core PUBLIC
 # ---------------------------------------------------------------------------
 add_library(navigation_node_component SHARED src/nodes/navigation_node.cpp)
 ament_target_dependencies(navigation_node_component ${M20_NAV_DEPENDENCIES})
-target_link_libraries(navigation_node_component PRIVATE
+target_link_libraries(navigation_node_component
   m20_navigation_core
   Eigen3::Eigen
   ${PCL_LIBRARIES}
@@ -140,7 +141,7 @@ target_include_directories(m20_native_navigation_bridge PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(m20_native_navigation_bridge PRIVATE
+target_link_libraries(m20_native_navigation_bridge
   m20_navigation_core
   Eigen3::Eigen
   ${PCL_LIBRARIES}
@@ -150,13 +151,13 @@ if(M20_HAS_DRDDS)
   target_include_directories(m20_native_navigation_bridge SYSTEM PRIVATE
     ${drdds_INCLUDE_DIRS})
   if(TARGET drdds::drdds)
-    target_link_libraries(m20_native_navigation_bridge PRIVATE drdds::drdds)
+    target_link_libraries(m20_native_navigation_bridge drdds::drdds)
   else()
     target_link_directories(m20_native_navigation_bridge PRIVATE /usr/local/lib)
-    target_link_libraries(m20_native_navigation_bridge PRIVATE ${drdds_LIBRARIES})
+    target_link_libraries(m20_native_navigation_bridge ${drdds_LIBRARIES})
   endif()
 endif()
-target_link_libraries(navigation_node_component PRIVATE m20_native_navigation_bridge)
+target_link_libraries(navigation_node_component m20_native_navigation_bridge)
 if(M20_HAS_DRDDS)
   target_compile_definitions(navigation_node_component PRIVATE M20_HAS_DRDDS=1)
 endif()
@@ -165,7 +166,7 @@ endif()
 # OccGrid bridge: converts lightning-lm occ_grid output to /GRID_MAP topic
 # ---------------------------------------------------------------------------
 add_executable(occ_grid_bridge src/occ_grid_bridge.cpp)
-ament_target_dependencies(occ_grid_bridge rclcpp nav_msgs sensor_msgs geometry_msgs visualization_msgs pcl_conversions)
+ament_target_dependencies(occ_grid_bridge rclcpp nav_msgs nav2_map_server)
 target_link_libraries(occ_grid_bridge Eigen3::Eigen m20_navigation_core ${PCL_LIBRARIES})
 target_include_directories(occ_grid_bridge PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -184,8 +185,8 @@ install(TARGETS
 )
 
 install(DIRECTORY
-  config/
-  DESTINATION lib/${PROJECT_NAME}/config
+  config launch rviz
+  DESTINATION share/${PROJECT_NAME}
 )
 
 install(DIRECTORY
@@ -194,6 +195,7 @@ install(DIRECTORY
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 

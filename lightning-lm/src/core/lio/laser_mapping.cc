@@ -5,6 +5,7 @@
 #include "common/options.h"
 #include "core/lightning_math.hpp"
 #include "laser_mapping.h"
+#include "core/lio/wheelspeed_obs.h"
 
 #include <opencv2/core/mat.hpp>
 #include <opencv2/highgui.hpp>
@@ -290,27 +291,6 @@ bool LaserMapping::Run() {
 
     if (!measures_.odom_.empty()) {
         kf_.Update(ESKF::ObsType::WHEEL_SPEED_AND_LIDAR, 1.0);
-        /// 退化直走廊（仿真）：lidar 的 x 约束被"地图追尾"重新锚定（残差恒 ~0），
-        /// ESKF 先验信息累积使常规轮速观测无法推动状态；轮速无打滑、是前向运动
-        /// 的权威来源。用轮速死推算【替换】x（按当前 yaw 投影车体前向速度），
-        /// y/yaw/z/姿态仍由 ESKF（lidar+轮速）估计。
-        NavState s = kf_.GetX();
-        double vx_avg = 0.0;
-        for (const auto &o : measures_.odom_) {
-            vx_avg += o->linear[0];
-        }
-        vx_avg /= (double)measures_.odom_.size();
-        const double dt = measures_.lidar_end_time_ - measures_.lidar_begin_time_;
-        if (dt > 0.0 && dt < 1.0 && std::isfinite(vx_avg)) {
-            if (!wheel_x_inited_) {
-                wheel_x_accum_ = s.pos_.x();
-                wheel_x_inited_ = true;
-            }
-            const double yaw = s.rot_.log()[2];
-            wheel_x_accum_ += vx_avg * dt * std::cos(yaw);
-            s.pos_.x() = wheel_x_accum_;
-            kf_.ChangeX(s);
-        }
     } else {
         kf_.Update(ESKF::ObsType::LIDAR, 1.0);
     }
@@ -319,6 +299,7 @@ bool LaserMapping::Run() {
     state_point_.timestamp_ = measures_.lidar_end_time_;
 
     prev_frame_pose_ = state_point_.GetPose();
+    prev_frame_time_ = state_point_.timestamp_;
 
     const double delta_translation = (pred_state.pos_ - state_point_.pos_).norm();
     const double delta_rotation_deg = (pred_state.rot_.inverse() * state_point_.rot_).log().norm() * 180.0 / M_PI;
@@ -413,7 +394,8 @@ void LaserMapping::ProjectKFs(CloudPtr cloud, int size_limit) {
 }
 
 void LaserMapping::MakeKF() {
-    Keyframe::Ptr kf = std::make_shared<Keyframe>(kf_id_++, scan_undistort_, state_point_);
+    Keyframe::Ptr kf = std::make_shared<Keyframe>(kf_id_++, scan_undistort_, state_point_,
+        SE3(SO3(offset_R_lidar_fixed_), offset_t_lidar_fixed_));
 
     if (last_kf_) {
         /// opt pose 用之前的递推
@@ -466,7 +448,7 @@ void LaserMapping::ProcessPointCloud2(const sensor_msgs::msg::PointCloud2::Share
         [&, this]() {
             scan_count_++;
             double timestamp = ToSec(msg->header.stamp);
-            if (timestamp < last_timestamp_lidar_) {
+            if (timestamp <= last_timestamp_lidar_) {
                 LOG(ERROR) << "lidar loop back, dt: " << timestamp - last_timestamp_lidar_;
                 return;
             }
@@ -490,9 +472,9 @@ void LaserMapping::ProcessPointCloud2(const livox_ros_driver2::msg::CustomMsg::S
         [&, this]() {
             scan_count_++;
             double timestamp = ToSec(msg->header.stamp);
-            if (timestamp < last_timestamp_lidar_) {
-                LOG(ERROR) << "lidar loop back, clear buffer";
-                lidar_buffer_.clear();
+            if (timestamp <= last_timestamp_lidar_) {
+                LOG(WARNING) << "stale lidar timestamp, rejecting sample";
+                return;
             }
 
             // LOG(INFO) << "get cloud at " << std::setprecision(14) << timestamp
@@ -515,9 +497,9 @@ void LaserMapping::ProcessPointCloud2(CloudPtr cloud) {
             scan_count_++;
 
             double timestamp = math::ToSec(cloud->header.stamp);
-            if (timestamp < last_timestamp_lidar_) {
-                LOG(ERROR) << "lidar loop back, clear buffer";
-                lidar_buffer_.clear();
+            if (timestamp <= last_timestamp_lidar_) {
+                LOG(WARNING) << "stale lidar timestamp, rejecting sample";
+                return;
             }
 
             lidar_buffer_.push_back(cloud);
@@ -586,18 +568,9 @@ bool LaserMapping::SyncPackages() {
     /*** push odom_ data, and pop from odom buffer ***/
     UL lock_odom(mtx_odom_);
     measures_.odom_.clear();
-    if (!odom_buffer_.empty()) {
-        while (!odom_buffer_.empty() && odom_buffer_.front()->timestamp_ < measures_.lidar_begin_time_ - 0.1) {
-            odom_buffer_.pop_front();  // 丢弃过期
-        }
-        for (auto &odom : odom_buffer_) {
-            if (odom->timestamp_ > measures_.lidar_end_time_ + 0.1) {
-                break;
-            }
-            measures_.odom_.push_back(odom);
-        }
-        odom_buffer_.clear();
-    }
+    const double start_time = prev_frame_time_ > 0 ? prev_frame_time_ : measures_.lidar_begin_time_;
+    const auto samples = SelectWheelSamples(odom_buffer_, start_time, measures_.lidar_end_time_);
+    measures_.odom_.assign(samples.begin(), samples.end());
 
     lidar_buffer_.pop_front();
     time_buffer_.pop_front();

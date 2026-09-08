@@ -1,0 +1,25 @@
+{
+  "bytes": 1150758912,
+  "sha256": "0416a0df713bf1d08cf846d1ad09bf72d4ca3bf5db789c7b75fd72124461facb",
+  "integrity_check": [
+    [
+      "ok"
+    ]
+  ],
+  "topics": [
+    [
+      "/IMU",
+      "sensor_msgs/msg/Imu",
+      8301,
+      1719154017867999480,
+      1719154063168481025
+    ],
+    [
+      "/LIDAR/POINTS",
+      "sensor_msgs/msg/PointCloud2",
+      452,
+      1719154018023915786,
+      1719154063116559939
+    ]
+  ]
+}

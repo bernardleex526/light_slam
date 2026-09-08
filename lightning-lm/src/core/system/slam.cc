@@ -3,6 +3,7 @@
 //
 
 #include "core/system/slam.h"
+#include "core/system/navigation_output.h"
 #include "core/g2p5/g2p5.h"
 #include "core/lio/laser_mapping.h"
 #include "core/loop_closing/loop_closing.h"
@@ -156,26 +157,7 @@ bool SlamSystem::Init(const std::string& yaml_path) {
             degeneracy_pub_->publish(msg);
         });
 
-        lio_pose_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
-            lio_pose_topic_, 10);
-        lio_pose_timer_ = node_->create_wall_timer(std::chrono::milliseconds(100), [this]() {
-            if (!lio_) return;
-            NavState st = lio_->GetState();
-            geometry_msgs::msg::PoseStamped msg;
-            msg.header.frame_id = "map";
-            // 用节点时钟（仿真 /clock）打时间戳：ESKF 的 lidar_end_time 滞后 ~12ms，
-            // 超出 evo 默认 10ms 关联窗口；用 now() 与 GT(/clock) 时间对齐
-            msg.header.stamp = node_->now();
-            msg.pose.position.x = st.pos_.x();
-            msg.pose.position.y = st.pos_.y();
-            msg.pose.position.z = st.pos_.z();
-            Eigen::Quaterniond q(st.rot_.unit_quaternion());
-            msg.pose.orientation.x = q.x();
-            msg.pose.orientation.y = q.y();
-            msg.pose.orientation.z = q.z();
-            msg.pose.orientation.w = q.w();
-            lio_pose_pub_->publish(msg);
-        });
+        navigation_output_ = std::make_shared<NavigationOutput>(node_, yaml);
 
         savemap_service_ = node_->create_service<SaveMapService>(
             "lightning/save_map", [this](const SaveMapService::Request::SharedPtr& req,
@@ -200,6 +182,11 @@ void SlamSystem::StartSLAM(std::string map_name) {
 
 void SlamSystem::SaveMap(const SaveMapService::Request::SharedPtr request,
                          SaveMapService::Response::SharedPtr response) {
+    if (lio_->GetAllKeyframes().empty()) { response->response = -1; return; }
+    if (request->map_id.empty() || request->map_id == "." || request->map_id == ".." ||
+        request->map_id.find_first_of("/\\") != std::string::npos) {
+        response->response = -1; return;
+    }
     map_name_ = request->map_id;
     std::string save_path = "./data/" + map_name_ + "/";
 
@@ -208,6 +195,7 @@ void SlamSystem::SaveMap(const SaveMapService::Request::SharedPtr request,
 }
 
 void SlamSystem::SaveMap(const std::string& path) {
+    if (lio_->GetAllKeyframes().empty()) { LOG(WARNING) << "No keyframes to save"; return; }
     std::string save_path = path;
     if (save_path.empty()) {
         save_path = "./data/" + map_name_ + "/";
@@ -314,6 +302,10 @@ void SlamSystem::ProcessLidar(const sensor_msgs::msg::PointCloud2::SharedPtr& cl
     lio_->Run();
 
     auto kf = lio_->GetKeyframe();
+    if (navigation_output_ && kf) {
+        navigation_output_->Correction(kf->GetOptPose() * kf->GetLIOPose().inverse());
+        navigation_output_->Local(lio_->GetState(), lio_->GetCovariance());
+    }
     if (kf != cur_kf_) {
         cur_kf_ = kf;
     } else {
@@ -346,6 +338,10 @@ void SlamSystem::ProcessLidar(const livox_ros_driver2::msg::CustomMsg::SharedPtr
     lio_->Run();
 
     auto kf = lio_->GetKeyframe();
+    if (navigation_output_ && kf) {
+        navigation_output_->Correction(kf->GetOptPose() * kf->GetLIOPose().inverse());
+        navigation_output_->Local(lio_->GetState(), lio_->GetCovariance());
+    }
     if (kf != cur_kf_) {
         cur_kf_ = kf;
     } else {

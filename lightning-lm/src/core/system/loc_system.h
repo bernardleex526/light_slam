@@ -19,6 +19,7 @@
 #include "common/keyframe.h"
 
 namespace lightning {
+class NavigationOutput;
 
 namespace loc {
 class Localization;
@@ -27,7 +28,6 @@ class Localization;
 class LocSystem {
    public:
     struct Options {
-        bool pub_tf_ = true;  // 是否发布tf
     };
 
     explicit LocSystem(Options options);
@@ -50,6 +50,7 @@ class LocSystem {
     void Spin();
 
    private:
+    std::shared_ptr<NavigationOutput> navigation_output_;
     Options options_;
 
     std::shared_ptr<loc::Localization> loc_ = nullptr;  // 定位接口
@@ -59,15 +60,12 @@ class LocSystem {
 
     /// 实时模式下的ros2 node, subscribers
     rclcpp::Node::SharedPtr node_;
-    std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_ = nullptr;
 
-    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_ = nullptr;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initialpose_sub_ = nullptr;
 
     std::string imu_topic_;
     std::string cloud_topic_;
     std::string livox_topic_;
-    std::string odom_topic_;  // 输出里程计话题（system.odom_topic，默认 /ODOM；可隔离为 /m20_slam/odom）
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_ = nullptr;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_ = nullptr;

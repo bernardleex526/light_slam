@@ -1,0 +1,15 @@
+{
+  "scope": "Nav2 closed loop with synthetic kinematics, synthetic TF/odometry and static obstacle map; excludes SLAM and robot hardware",
+  "action_status": 4,
+  "final_pose": [
+    2.8164712711246267,
+    1.1368527806599846,
+    -0.26682203483562794
+  ],
+  "goal_distance_m": 0.22893553218532972,
+  "command_messages": 337,
+  "max_abs_vx": 0.3,
+  "max_abs_wz": 0.4,
+  "footprint_collision_samples": 0,
+  "footprint_checked_samples": 943
+}

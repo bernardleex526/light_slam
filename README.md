@@ -1,9 +1,80 @@
 # M20 SLAM + 自研导航系统（lightning-lm + leg_wheel_odom + m20_navigation）
 
-本仓库是面向云深处 **M20 Pro** 轮足机器狗（ROS2 Foxy / RK3588 ARM）的**完整激光-惯导建图、定位与自研导航系统**。
-基于开源 [lightning-lm](https://github.com/gaoxiang12/lightning-lm)（Lightning-Speed Lidar SLAM），
-叠加轮腿里程计融合、关节数据桥接，并移植了自研导航栈（Hybrid A\* + DWA + LinePlanner + 原生 DrDDS 桥），
-实现从传感器输入到运动指令输出的端到端闭环。
+本仓库面向云深处 **M20 Pro** 及其他提供 ROS 2 传感器/运动接口的机器狗，集成激光惯性建图、定位、可选腿式里程计，以及两条导航路径：
+
+- **标准 Nav2**：新增的通用 ROS 2 接入路径，使用 light_slam 定位、地图服务和 Regulated Pure Pursuit 控制器。
+- **自研导航**：保留 Hybrid A\*、DWA/LinePlanner、地形分析及原生 DrDDS 桥，见后文历史 M20 工作流。
+
+SLAM 基于开源 [lightning-lm](https://github.com/gaoxiang12/lightning-lm)。本次验证不证明与 M20 原厂二进制算法等价。
+**已验证环境为 Ubuntu 22.04 / ROS 2 Humble / x86_64 WSL2；M20 Pro 的 ARM/Foxy 原生构建、厂商运动接口及真机运动验收仍待完成。**
+
+## 2026-09-08 更新与验证
+
+- 修复 IMU 速度积分、轮速世界坐标覆盖、融合有效性、轮速雅可比与连续帧时间区间采样。
+- 关键帧点云统一到 IMU 坐标系；拒绝过期 LiDAR 数据，避免点云/时间队列错位。
+- 输出测量时间戳的 `/odom`、`/ODOM`、body-frame twist，以及 `map → odom → base_link`。
+- 栅格桥使用 Nav2 标准 YAML/PGM 加载器；修复 CMake、配置安装及 ROS launch 参数解析。
+- 增加 M20 Pro、通用 RoboSense、office bag 配置和 Nav2 启动入口；新配置默认关闭未经标定的辅助里程计。
+
+| 验证项 | 结果 | 适用范围 |
+|---|---|---|
+| SLAM 回归测试 | 11/11 通过 | 数学、帧间采样、外参、时间戳和导航输出 |
+| 原生导航接口单元测试 | 7/7 通过 | 不包含厂商 drdds 硬件 |
+| 45.30 秒 office bag 离线建图 | 397 次 LIO 更新，143,035 点 | 无真值，不能据此计算 ATE |
+| 同图定位 | 149/149 次尝试成功 | 非独立精度或泛化测试 |
+| 在线建图与定位回放 | TF 链、非零速度及单调输出时间戳通过 | ROS 数据接口 |
+| Nav2 合成闭环 | 到达目标，位置距离 0.229 m，943 个采样位姿无足迹碰撞 | 合成运动学/里程计与静态障碍物，不包含 SLAM 或真机 |
+
+导航包原有版权/格式等 lint 检查仍未全部通过。完整证据与限制见 [验证报告](docs/VALIDATION_2026-09-08.md)，机器人输入约定见 [部署指南](docs/ROBOT_DEPLOYMENT.md)。
+
+## ROS 2 / Nav2 快速开始（Humble）
+
+以下命令从仓库根目录执行；先按 §4 安装 PCL、Pangolin 等基础依赖：
+
+```bash
+source /opt/ros/humble/setup.bash
+sudo apt install ros-humble-navigation2 ros-humble-nav2-bringup
+export M20_HAS_DRDDS=0  # 无厂商 SDK 的开发机
+colcon build --packages-select lightning leg_wheel_odom m20_joints_adapter m20_navigation \
+  --executor sequential --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3 -DPYTHON_EXECUTABLE=/usr/bin/python3
+source install/setup.bash
+
+mkdir -p "$HOME/light_slam_config" "$HOME/light_slam_maps"
+cp lightning-lm/config/robots/m20pro.yaml "$HOME/light_slam_config/robot.yaml"
+# 编辑 robot.yaml：确认点云编码、IMU 单位/时间、雷达到 IMU 外参、IMU 到 base 外参和地面高度。
+ros2 launch lightning robot.launch.py mode:=mapping \
+  config:="$HOME/light_slam_config/robot.yaml" work_dir:="$HOME/light_slam_maps"
+```
+
+另一个已加载 ROS 工作空间环境的终端保存地图：
+
+```bash
+ros2 service call /lightning/save_map lightning/srv/SaveMap '{map_id: trial_01}'
+```
+
+地图保存在 `$HOME/light_slam_maps/data/trial_01/`。停止建图，将配置的 `system.map_path` 改为该目录的**绝对路径**，然后启动定位：
+
+```bash
+ros2 launch lightning robot.launch.py mode:=localization \
+  config:="$HOME/light_slam_config/robot.yaml" work_dir:="$HOME/light_slam_maps"
+# 定位及标定后的传感器 TF 就绪后，在另一个终端启动：
+ros2 launch m20_navigation light_slam_nav2.launch.py \
+  map:="$HOME/light_slam_maps/data/trial_01/occ_grid.yaml"
+```
+
+Nav2 使用 `/LIDAR/POINTS` 作为障碍物点云，并输出标准 `/cmd_vel`（`geometry_msgs/Twist`）。其他话题、完整运动腿足包络及速度限制通过 `params_file` 覆盖。默认足迹只是 M20 机身矩形加 5 cm，不能替代实际步态包络测量。
+**M20 厂商 SDK 转换器仍需按实际接口接入；现有自研规划器的 DrDDS 桥不等于已验证的 Nav2 命令适配器。**
+
+| 配置 | 用途 |
+|---|---|
+| `lightning-lm/config/robots/m20pro.yaml` | M20 话题模板，外参须实测 |
+| `lightning-lm/config/robots/generic_robosense.yaml` | `/points_raw` + `/imu/data`，要求 RoboSense 点云编码 |
+| `lightning-lm/config/robots/m20_office_replay.yaml` | office bag，仿真时间及可靠 QoS |
+| `src/m20_navigation/config/nav2_light_slam.yaml` | Nav2 参数，前进/转向控制，目标容差 0.25 m / 0.30 rad |
+
+回放时选择 `m20_office_replay.yaml` 并执行 `ros2 bag play /absolute/bag --clock`；重复从头播放前重启 SLAM。bag 回放不能测量闭环导航，因为录制的运动不会响应新的速度指令。Livox、Velodyne 等传感器还需采用对应预处理配置，不能只改话题名。
+
+以下章节保留自研导航和历史 M20 接入流程；与本次已验证接口有关的状态以上述指南和验证报告为准。
 
 > **三板架构**（2026-09-01 M20 Pro 原厂基线探查实录，详见 `docs/M20_ALIGNMENT.md`）：
 > - **AOS** `192.168.101.36`（可 SSH）—— 第三方节点部署板
@@ -21,8 +92,9 @@
 | **关节桥接** | `src/m20_joints_adapter` | `/JOINTS_DATA`(drdds) → `/joint_states`（16 关节） |
 | **后端回环** | `lightning-lm` grid-NDT + miao 图优化 | 自研轻量图优化库（g2o 风格，GN/LM/DogLeg） |
 | **地图** | `lightning-lm` 分块点云 + g2p5 栅格 | 静态/动态层，实时输出 `occ_grid.pgm/yaml`（兼容 M20 官方 drmap） |
-| **定位** | `lightning-lm` NDT-OMP + PGO | `/ODOM`（map 系，10Hz）+ `map→base_link` TF + `/initialpose` 重定位 |
+| **定位** | `lightning-lm` NDT-OMP + PGO | `/odom`（连续 LIO）+ `/ODOM`（map 系）+ `map→odom→base_link` TF + `/initialpose` 重定位 |
 | **自研导航** | `src/m20_navigation/` | **全局规划**（Hybrid A\* + 运动原语 + 样条平滑）+ **局部控制**（DWA / LinePlanner）+ **地形通行分析**（2.5D 高程格 + 坡度/粗糙度/台阶）+ **原生 DrDDS 桥**（`/NAV_CMD`、`/GOAL_GLOBAL` 等） |
+| **标准 Nav2** | `light_slam_nav2.launch.py` | 地图服务 + Nav2 + RPP；厂商运动命令接口需另行适配 |
 | **原厂导航对接** | `lightning-lm` 定位输出 | 输出 `/ODOM` + occ_grid 给原厂 NOS planner 使用 |
 | **一键启动** | `scripts/` | `start_slam.sh` / `start_loc.sh` / `start_nav.sh`（环境加载 + 预检 + Ctrl+C 自动存图/清理） |
 | **仿真验证** | `sim_ws/` | M20 Gazebo 模型 + corridor/plaza/office 三场景 + 评测脚本 |
@@ -64,9 +136,10 @@
 
 | 话题 | 方向 | 类型 | 说明 |
 |---|---|---|---|
-| `/lio_pose`（`system.lio_pose_topic`） | 输出 | `geometry_msgs/PoseStamped` | 建图 LIO 位姿，10Hz；可隔离为 `/m20_slam/pose` |
-| `/ODOM`（`system.odom_topic`） | 输出 | `nav_msgs/Odometry` | 定位位姿（map 系），10Hz；可隔离为 `/m20_slam/odom` |
-| `map→base_link` TF（`system.pub_tf`） | 输出 | `tf2` | 定位 TF；可关闭（不影响 `/ODOM`） |
+| `/lio_pose`（`system.lio_pose_topic`） | 输出 | `geometry_msgs/PoseStamped` | map 系 base 位姿；按有效测量更新，可参数化 |
+| `/ODOM`（`system.odom_topic`） | 输出 | `nav_msgs/Odometry` | map 系 base 位姿及 body-frame twist；按有效测量更新 |
+| `/odom`（`system.lio_odom_topic`） | 输出 | `nav_msgs/Odometry` | 连续 LIO base 位姿及 body-frame twist |
+| `map→odom→base_link` TF（`system.pub_tf`） | 输出 | `tf2` | 测量时间戳；可关闭 TF；避免多个节点发布相同变换 |
 | `/lightning/save_map` | 服务 | `lightning/srv/SaveMap` | 保存地图（`map_id` 参数） |
 
 ### 导航输入（自研导航栈）
@@ -98,12 +171,12 @@
 ## 4. 环境与依赖
 
 真机：**Ubuntu 20.04 + ROS2 Foxy + RK3588（AOS `192.168.101.36`，可 SSH）**。
-开发机：Ubuntu 20.04/22.04 + ROS2 Foxy/Humble。
+本次实际测试开发机：Ubuntu 22.04 + ROS2 Humble（WSL2/x86_64）。上述真机平台描述为历史配置，不代表本次已完成验证。
 
 ### 板载依赖
 
 PCL 1.10、Eigen 3.3.7、OpenCV 4.2、yaml-cpp 0.6.2。
-自研导航栈仅依赖 PCL/Eigen 及 rclcpp 系列标准包；另含可选厂商 DrDDS SDK（仅真机存在，CMake 通过 find_package(drdds QUIET) 自动探测）。
+导航包依赖 PCL/Eigen、rclcpp 和 Nav2 map_server；标准导航入口还依赖 nav2_bringup 与 RPP；另含可选厂商 DrDDS SDK（仅真机存在，CMake 通过 find_package(drdds QUIET) 自动探测）。
 
 ### 安装
 
@@ -184,13 +257,13 @@ ros2 run lightning run_loc_offline \
   --input_bag ../data/m20_office_bag --config ./config/default_m20.yaml
 ```
 
-官方 office bag 基准：建图 448 关键帧 / 49,252 点；定位 162/163 帧匹配成功，confidence 均值 2.84。
+2026-09-08 固定配置回放：397 次 LIO 更新、143,035 点；同图定位 149/149 次尝试成功，内部 confidence 均值 2.944。配置与限制见 [验证报告](docs/VALIDATION_2026-09-08.md)。
 
 ---
 
 ## 8. 在线建图 SOP（真机 AOS）
 
-### 8.1 一键启动（推荐）
+### 8.1 历史 M20 脚本启动
 
 ```bash
 ./scripts/start_slam.sh --map-id site_a
@@ -258,7 +331,7 @@ ros2 topic pub -1 /initialpose geometry_msgs/msg/PoseWithCovarianceStamped \
 ```bash
 ros2 topic echo /joint_states   # 16 关节
 ros2 topic echo /odom_wheel     # 50Hz
-ros2 topic echo /ODOM           # 定位位姿 10Hz
+ros2 topic echo /ODOM           # map 系位姿，按有效测量更新
 ros2 topic hz /IMU              # 200Hz
 ros2 topic echo /lio_pose       # 建图时
 ```
@@ -272,7 +345,7 @@ ros2 topic echo /lio_pose       # 建图时
 
 > 前置：已运行建图（§8）或定位（§9）链路，获得 `/ODOM` + occ_grid（或在线 `/GRID_MAP`）。
 
-### 10.1 一键启动（推荐）
+### 10.1 自研导航脚本启动
 
 ```bash
 # 仅规划干跑（不发运动指令，默认安全）
@@ -437,7 +510,7 @@ x86/WSL corridor 基准：CPU 均值 ~7.2% / 峰值 ~14.6%，RSS 107.9–141MB�
 | A | RoboSense 点云 `timestamp` 字段 | ✅ 官方数据已验证存在且布局正确 |
 | B | 腿式里程计为单腿 2-DOF 简化模型（协方差放大 100 倍降权） | 待真机数据按需改进 |
 | C | `track_width=0.137` 取手册值 | 建议真机实测校准 |
-| D | IMU 外参取 identity（驱动已变换到 base_link） | 精度不足时微调 `extrinsic_T/R` |
+| D | identity 外参只是模板，不能假定驱动已完成正确坐标转换 | 实测并填写 LiDAR→IMU、base→IMU 外参 |
 | E | `/ODOM` 与原厂 NOS localization 双发布冲突 | 部署前 `ros2 topic info /ODOM` 确认发布者；冲突时 `system.odom_topic=/m20_slam/odom`（隔离模式） |
 | F | 真机传感器链路（`/LIDAR/POINTS` 未发布、IMU 静默） | 参考 `docs/M20_ALIGNMENT.md` §6，属机器人侧状态，需先恢复 |
 | G | 自研导航 footprint 不一致（全局 0.45² vs 局部 0.84×0.5） | 统一机身模型后再真机验收 |

@@ -1,0 +1,20 @@
+{
+  "bag_player_exit": 0,
+  "local_odom_messages": 377,
+  "global_odom_messages": 377,
+  "nonzero_twist_messages": 377,
+  "monotonic_odom": true,
+  "pose_messages": 377,
+  "tf_messages": 754,
+  "tf_edges": [
+    [
+      "map",
+      "odom"
+    ],
+    [
+      "odom",
+      "base_link"
+    ]
+  ],
+  "save_map_response": 0
+}

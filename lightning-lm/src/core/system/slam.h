@@ -22,6 +22,7 @@
 #include "common/odom.h"
 
 namespace lightning {
+class NavigationOutput;
 
 class LaserMapping;  //  lio 前端
 class LoopClosing;   // 回环检测
@@ -85,6 +86,7 @@ class SlamSystem {
     /// ros端保存地图的实现
     void SaveMap(const SaveMapService::Request::SharedPtr request, SaveMapService::Response::SharedPtr response);
 
+    std::shared_ptr<NavigationOutput> navigation_output_;
     Options options_;
     std::atomic_bool running_ = false;
 
@@ -116,8 +118,6 @@ class SlamSystem {
 
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr degeneracy_pub_ = nullptr;
     rclcpp::TimerBase::SharedPtr degeneracy_timer_ = nullptr;
-    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr lio_pose_pub_ = nullptr;
-    rclcpp::TimerBase::SharedPtr lio_pose_timer_ = nullptr;
 };
 }  // namespace lightning
 

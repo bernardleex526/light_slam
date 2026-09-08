@@ -2,6 +2,8 @@
 
 [English](./README.md) | 中文
 
+> **机器人接入更新（2026-09-08）：** 本分支已修复融合/时间戳问题，提供可标定的 base 位姿、`map -> odom -> base_link` TF 链和标准 Nav2 启动入口。见[仓库快速开始](../README.md)、[部署约定](../docs/ROBOT_DEPLOYMENT.md)及[验证报告](../docs/VALIDATION_2026-09-08.md)。真机/SDK 验收仍待完成；以下上游特性列表不代表本分支已测性能。
+
 Lightning-Speed Lidar Localization and Mapping
 
 Lightning-LM 是一个完整的激光建图+定位模块。

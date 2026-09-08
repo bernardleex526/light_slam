@@ -1,0 +1,36 @@
+{
+  "scope": "static map-server + Navfn planning only; synthetic static TF fixture; no closed-loop navigation",
+  "map": {
+    "width": 144,
+    "height": 208,
+    "resolution": 0.20000000298023224,
+    "origin": [
+      -8.600000381469727,
+      -21.600000381469727
+    ],
+    "free": 1576,
+    "occupied": 2351,
+    "unknown": 26025,
+    "yaml_resolution_matches": true,
+    "yaml_origin_matches": true,
+    "image_dimensions_match": true,
+    "pixel_occupancy_mismatches": 0
+  },
+  "planning": {
+    "action_status": 4,
+    "start_cell": [
+      175,
+      56
+    ],
+    "goal_cell": [
+      127,
+      75
+    ],
+    "poses": 112,
+    "length_m": 11.271142344307117,
+    "centerline_samples": 398,
+    "nonfree_or_outside_samples": 0,
+    "centerline_collision_free": true,
+    "footprint_collision_verified": false
+  }
+}

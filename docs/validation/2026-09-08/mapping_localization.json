@@ -1,0 +1,12 @@
+{
+  "lio_updates": 397,
+  "global_pcd_points": 143035,
+  "trajectory_length_m": 36.689709763925336,
+  "trajectory_endpoint_distance_m": 0.497540705082157,
+  "localization_attempts": 149,
+  "localization_successes": 149,
+  "localization_confidence_mean": 2.944148120805369,
+  "localization_stale_lidar_rejected": 53,
+  "localization_queue_clear_warnings": 0,
+  "ground_truth_available": false
+}

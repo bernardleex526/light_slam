@@ -91,6 +91,7 @@ class LaserMapping {
     Keyframe::Ptr GetKeyframe() const { return last_kf_; }
 
     /// 获取激光的状态
+    const ESKF::CovType &GetCovariance() const { return kf_.GetP(); }
     NavState GetState() const { return state_point_; }
 
     /// 获取上一帧退化信息
@@ -202,14 +203,13 @@ class LaserMapping {
 
     std::mutex mtx_odom_;
     std::deque<OdomPtr> odom_buffer_;  // 轮速里程计缓存
+    double prev_frame_time_ = -1.0;
     SE3 prev_frame_pose_;              // 上一帧状态位姿（轮速观测预测用）
     bool last_frame_degenerate_ = false;  // 上一帧是否退化（轮速增强用）
     int last_nullity_ = 0;
     Vec6d last_eigenvalues_ = Vec6d::Zero();
     double wheel_odom_weight_ = 1.0;      // 轮速观测权重（Task 5 接入 yaml）
     double wheel_degeneracy_boost_ = 1.0; // 退化帧轮速权重增益（Task 5 接入 yaml）
-    double wheel_x_accum_ = 0.0;          // 轮速死推算 x 累积（退化走廊接管 x）
-    bool wheel_x_inited_ = false;
 
     /// options
     bool keep_first_imu_estimation_ = false;  // 在没有建立地图前，是否要使用前几帧的IMU状态

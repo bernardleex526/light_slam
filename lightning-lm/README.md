@@ -2,6 +2,8 @@
 
 English | [中文](./README_CN.md)
 
+> **Robot integration update (2026-09-08):** This fork now provides calibrated base-frame odometry, the `map -> odom -> base_link` TF chain, and a standard Nav2 launch. See the [repository quick start](../README.md), [deployment contract](../docs/ROBOT_DEPLOYMENT.md), and [validation report](../docs/VALIDATION_2026-09-08.md). Hardware/SDK acceptance is still pending; the upstream feature list below is not a measured performance guarantee for this fork.
+
 Lightning-Speed Lidar Localization and Mapping
 
 Lightning-LM is a complete laser mapping and localization module.
